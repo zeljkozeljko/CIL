@@ -103,9 +103,9 @@ class CGLS(Algorithm):
         self.d *= alpha
         Ad *= alpha
         self.r -= Ad
-        if numpy.isnan(self.r.as_array()).any():
-            print ("some nan")
-            raise StopIteration()
+#        if numpy.isnan(self.r.as_array()).any():
+#            print ("some nan")
+#            raise StopIteration()
         self.x += self.d
         
         self.operator.adjoint(self.r, out=self.s)

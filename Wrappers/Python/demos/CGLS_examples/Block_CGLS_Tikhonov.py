@@ -52,6 +52,7 @@ from ccpi.optimisation.operators import BlockOperator, Gradient
 import tomophantom
 from tomophantom import TomoP2D
 from ccpi.astra.operators import AstraProjectorSimple 
+import os
 
 device = input('Available device: GPU==1 / CPU==0 ')
 
@@ -81,7 +82,7 @@ ag = AcquisitionGeometry('parallel','2D', angles, detectors)
 
 Aop = AstraProjectorSimple(ig, ag, dev)    
 sin = Aop.direct(data)
-noisy_data = AcquisitionData( sin.as_array() + np.random.normal(0,3,ig.shape))
+noisy_data = AcquisitionData( sin.as_array() + np.random.normal(0,1,ig.shape))
 
 # Show Ground Truth and Noisy Data
 plt.figure(figsize=(10,10))
