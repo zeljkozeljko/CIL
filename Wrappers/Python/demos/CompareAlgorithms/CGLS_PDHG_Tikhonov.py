@@ -49,8 +49,8 @@ import os, sys
 loader = TestData(data_dir=os.path.join(sys.prefix, 'share','ccpi'))
 
 # Create Ground truth phantom and Sinogram                 
-N = 150
-M = 150
+N = 64
+M = 64
 data = loader.load(TestData.SIMPLE_PHANTOM_2D, size=(N,M), scale=(0,1))
 ig = data.geometry
 
@@ -67,10 +67,10 @@ else:
 Aop = AstraProjectorSimple(ig, ag, dev)    
 sin = Aop.direct(data)
 
-noisy_data = AcquisitionData( sin.as_array() + np.random.normal(0,3,ig.shape))
+noisy_data = AcquisitionData( sin.as_array() + np.random.normal(0,3,ig.shape) )
 
 # Setup and run the CGLS algorithm  
-alpha = 50
+alpha = 10
 Grad = Gradient(ig)
 
 # Form Tikhonov as a Block CGLS structure
@@ -81,13 +81,14 @@ x_init = ig.allocate()
 cgls = CGLS(x_init=x_init, operator=op_CGLS, data=block_data)
 cgls.max_iteration = 1000
 cgls.update_objective_interval = 200
-cgls.run(1000,verbose=False)
+cgls.run(1000, verbose=True)
 
 
 #Setup and run the PDHG algorithm 
 
 # Create BlockOperator
 op_PDHG = BlockOperator(Grad, Aop, shape=(2,1) ) 
+
 # Create functions     
 f1 = 0.5 * alpha**2 * L2NormSquared()
 f2 = 0.5 * L2NormSquared(b = noisy_data)    
@@ -104,7 +105,7 @@ tau = 1/(sigma*normK**2)
 pdhg = PDHG(f=f,g=g,operator=op_PDHG, tau=tau, sigma=sigma)
 pdhg.max_iteration = 1000
 pdhg.update_objective_interval = 200
-pdhg.run(1000, verbose=False)
+pdhg.run(1000, verbose=True)
 
 # Show results
 plt.figure(figsize=(10,10))

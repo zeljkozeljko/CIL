@@ -20,11 +20,19 @@
 #=========================================================================
 
 """ 
-Example for Least Squares minimisation with CG algorithm  (CGLS)
+Tikhonov reconstruction using Block CGLS 
 
 
-Problem:     min_u || A u - g ||_{2}^{2}
-
+Problem:     min_u alpha * ||\grad u ||^{2}_{2} + || A u - g ||_{2}^{2}
+            
+             ==> Block CGLS
+             
+             min_u || \tilde{A} u - \tilde{g} ||_{2}^{2}
+             
+             \tilde{A} = [ A,
+                           alpha * \grad]
+             \tilde{g} = [g,
+                          0]
 
              A: Projection operator
              g: Sinogram
@@ -32,46 +40,48 @@ Problem:     min_u || A u - g ||_{2}^{2}
 """
 
 
-from ccpi.framework import ImageGeometry, ImageData, \
-                    AcquisitionGeometry, AcquisitionData
+from ccpi.framework import ImageGeometry, ImageData, AcquisitionGeometry, BlockDataContainer, AcquisitionData
 
 import numpy as np 
 import numpy                          
 import matplotlib.pyplot as plt
-from ccpi.optimisation.algorithms import CGLS     
-import os
-from ccpi.astra.operators import AstraProjectorSimple 
+
+from ccpi.optimisation.algorithms import CGLS
+from ccpi.optimisation.operators import BlockOperator, Gradient
+       
 import tomophantom
 from tomophantom import TomoP2D
-
-# Load Shepp-Logan phantom 
-model = 1 # select a model number from the library
-N = 64 
-path = os.path.dirname(tomophantom.__file__)
-path_library2D = os.path.join(path, "Phantom2DLibrary.dat")
-
-#This will generate a N_size x N_size phantom (2D)
-phantom_2D = TomoP2D.Model(model, N, path_library2D)
-
-# Create image geometry
-ig = ImageGeometry(voxel_num_x = N, voxel_num_y = N)
-data = ImageData(phantom_2D)
-
-# Create Acquisition data
-detectors = N
-angles = np.linspace(0, np.pi, N, dtype=np.float32)
-
-ag = AcquisitionGeometry('parallel','2D', angles, detectors)
+from ccpi.astra.operators import AstraProjectorSimple 
 
 device = input('Available device: GPU==1 / CPU==0 ')
+
 if device=='1':
     dev = 'gpu'
 else:
     dev = 'cpu'
 
+# Load  Shepp-Logan phantom 
+model = 1 # select a model number from the library
+N = 128 # set dimension of the phantom
+# one can specify an exact path to the parameters file
+# path_library2D = '../../../PhantomLibrary/models/Phantom2DLibrary.dat'
+path = os.path.dirname(tomophantom.__file__)
+path_library2D = os.path.join(path, "Phantom2DLibrary.dat")
+#This will generate a N_size x N_size phantom (2D)
+phantom_2D = TomoP2D.Model(model, N, path_library2D)
+
+ig = ImageGeometry(voxel_num_x = N, voxel_num_y = N)
+data = ImageData(phantom_2D)
+
+
+detectors = N
+angles = np.linspace(0, np.pi, N, dtype=np.float32)
+
+ag = AcquisitionGeometry('parallel','2D', angles, detectors)
+
 Aop = AstraProjectorSimple(ig, ag, dev)    
 sin = Aop.direct(data)
-projection_data = AcquisitionData(sin.as_array())
+noisy_data = AcquisitionData( sin.as_array() + np.random.normal(0,3,ig.shape))
 
 # Show Ground Truth and Noisy Data
 plt.figure(figsize=(10,10))
@@ -80,26 +90,36 @@ plt.imshow(data.as_array())
 plt.title('Ground Truth')
 plt.colorbar()
 plt.subplot(2,1,2)
-plt.imshow(projection_data.as_array())
-plt.title('Projection Data')
+plt.imshow(noisy_data.as_array())
+plt.title('Noisy Data')
 plt.colorbar()
 plt.show()
 
 # Setup and run the CGLS algorithm  
-x_init = ig.allocate()      
-cgls = CGLS(x_init=x_init, operator=Aop, data=projection_data)
-cgls.max_iteration = 2000
-cgls.update_objective_interval = 100
-cgls.run(2000,verbose=True)
+alpha = 20
+Grad = Gradient(ig)
 
+# Form Tikhonov as a Block CGLS structure
+op_CGLS = BlockOperator( Aop, alpha * Grad, shape=(2,1))
+block_data = BlockDataContainer(noisy_data, Grad.range_geometry().allocate())
+
+x_init = ig.allocate()      
+cgls = CGLS(x_init=x_init, operator=op_CGLS, data=block_data)
+cgls.max_iteration = 1000
+cgls.update_objective_interval = 200
+cgls.run(1000, verbose = True)
+
+# Show results
 plt.figure(figsize=(5,5))
 plt.imshow(cgls.get_output().as_array())
 plt.title('CGLS reconstruction')
 plt.colorbar()
 plt.show()
 
-# Check with CVX solution
 
+#%% Check with CVX solution
+
+from ccpi.optimisation.operators import SparseFiniteDiff
 import astra
 import numpy
 
@@ -110,6 +130,9 @@ except ImportError:
     cvx_not_installable = False
     
 if cvx_not_installable:
+    
+    DY = SparseFiniteDiff(ig, direction=0, bnd_cond='Neumann')
+    DX = SparseFiniteDiff(ig, direction=1, bnd_cond='Neumann')
     
     ##Construct problem    
     u = Variable(N*N)
@@ -124,12 +147,13 @@ if cvx_not_installable:
 
     ProjMat = astra.matrix.get(matrix_id)
     
-    tmp = projection_data.as_array().ravel()
+    tmp = noisy_data.as_array().ravel()
     
-    fidelity =  sum_squares(ProjMat * u - tmp)
+    fidelity = sum_squares(ProjMat * u - tmp)
+    regulariser = (alpha**2) * sum_squares(norm(vstack([DX.matrix() * vec(u), DY.matrix() * vec(u)]), 2, axis = 0))
 
     solver = MOSEK
-    obj =  Minimize(fidelity)
+    obj =  Minimize(fidelity + regulariser)
     prob = Problem(obj)
     result = prob.solve(verbose = True, solver = solver)    
          
@@ -158,3 +182,7 @@ if cvx_not_installable:
             
     print('Primal Objective (CVX) {} '.format(obj.value))
     print('Primal Objective (CGLS) {} '.format(cgls.objective[-1]))
+
+
+
+            

@@ -1,4 +1,4 @@
-# This demo illustrates how to use the SIRT algorithm without and with 
+ # This demo illustrates how to use the SIRT algorithm without and with 
 # nonnegativity and box constraints. The ASTRA 2D projectors are used.
 
 # First make all imports

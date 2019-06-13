@@ -161,12 +161,12 @@ if cvx_not_installable:
     DX = SparseFiniteDiff(ig, direction=1, bnd_cond='Neumann')
     
     # Define Total Variation as a regulariser
-    regulariser = alpha * sum(norm(vstack([DX.matrix() * vec(u), DY.matrix() * vec(u)]), 2, axis = 0))
+    regulariser = alpha * sum(norm(vstack([DX.matrix().toarray() * vec(u), DY.matrix().toarray() * vec(u)]), 2, axis = 0))
     fidelity = 0.5 * sum_squares(u - noisy_data.as_array())
     
     # choose solver
     if 'MOSEK' in installed_solvers():
-        solver = MOSEK
+        solver = SCS
     else:
         solver = SCS  
         

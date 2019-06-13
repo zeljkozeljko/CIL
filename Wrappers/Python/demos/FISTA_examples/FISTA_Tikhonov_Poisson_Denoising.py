@@ -23,7 +23,7 @@
 
 "Tikhonov regularization" for Poisson denoising using FISTA algorithm:
 
-Problem:     min_x, x>0  \alpha * ||\nabla x||_{2}^{2} + \int x - g * log(x) 
+Problem:     min_u, u>0  \alpha * ||\nabla x||_{2}^{2} + \int x - g * log(x) 
 
              \alpha: Regularization parameter
              
@@ -50,7 +50,6 @@ import os, sys
 from skimage.util import random_noise
 
 loader = TestData(data_dir=os.path.join(sys.prefix, 'share','ccpi'))
-
 # Load Data                      
 N = 100
 M = 100
@@ -76,7 +75,7 @@ plt.colorbar()
 plt.show()
 
 # Regularisation Parameter
-alpha = 10
+alpha = 1
 
 # Setup and run the FISTA algorithm
 operator = Gradient(ig)
@@ -195,7 +194,7 @@ if cvx_not_installable:
     plt.show()
             
     print('Primal Objective (CVX) {} '.format(obj.value))
-    print('Primal Objective (FISTA) {} '.format(fista.loss[1]))
+    print('Primal Objective (FISTA) {} '.format(fista.objective[-1]))
 
 
 

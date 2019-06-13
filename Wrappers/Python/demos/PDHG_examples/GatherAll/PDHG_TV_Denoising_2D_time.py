@@ -47,8 +47,6 @@ from ccpi.optimisation.operators import BlockOperator, Gradient, Identity
 from ccpi.optimisation.functions import ZeroFunction, L2NormSquared,  \
                       MixedL21Norm, BlockFunction
 
-from ccpi.astra.ops import AstraProjectorMC
-
 import os
 import tomophantom
 from tomophantom import TomoP2D
@@ -56,7 +54,7 @@ from tomophantom import TomoP2D
 # Create phantom for TV 2D dynamic tomography 
 
 model = 102  # note that the selected model is temporal (2D + time)
-N = 128 # set dimension of the phantom
+N = 64 # set dimension of the phantom
 
 path = os.path.dirname(tomophantom.__file__)
 path_library2D = os.path.join(path, "Phantom2DLibrary.dat")
@@ -231,8 +229,7 @@ ani2 = animation.ArtistAnimation(fig, ims2, interval=500,
 ani3 = animation.ArtistAnimation(fig, ims3, interval=500,
                                 repeat_delay=10)
 plt.show()        
-#    plt.pause(0.25)
-#    plt.show()
+
 
 
 

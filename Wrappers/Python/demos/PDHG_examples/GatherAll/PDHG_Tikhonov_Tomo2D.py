@@ -21,10 +21,10 @@
 
 """ 
 
-Total Variation 2D Tomography Reconstruction using PDHG algorithm:
+Tikhonov 2D Tomography Reconstruction using PDHG algorithm:
 
 
-Problem:     min_u  \alpha * ||\nabla u||_{2,1} + \frac{1}{2}||Au - g||^{2}
+Problem:     min_u  \alpha * ||\nabla u||_{2}^{2} + \frac{1}{2}||Au - g||^{2}
              min_u, u>0  \alpha * ||\nabla u||_{2,1} + \int A u  - g log (Au + \eta)
 
              \nabla: Gradient operator              
@@ -46,7 +46,7 @@ from ccpi.optimisation.algorithms import PDHG
 
 from ccpi.optimisation.operators import BlockOperator, Gradient
 from ccpi.optimisation.functions import ZeroFunction, L2NormSquared, \
-                      MixedL21Norm, BlockFunction, KullbackLeibler, IndicatorBox
+                       BlockFunction, KullbackLeibler, IndicatorBox
                       
 from ccpi.astra.operators import AstraProjectorSimple
 
@@ -123,20 +123,20 @@ normK = operator.norm()
 
 # Create functions
 if noise == 'poisson':
-    alpha = 3
+    alpha = 20
     f2 = KullbackLeibler(noisy_data)  
     g =  IndicatorBox(lower=0) 
     sigma = 1
     tau = 1/(sigma*normK**2)    
     
 elif noise == 'gaussian':   
-    alpha = 20
+    alpha = 100
     f2 = 0.5 * L2NormSquared(b=noisy_data)                                         
     g = ZeroFunction()
-    sigma = 10
+    sigma = 1
     tau = 1/(sigma*normK**2)     
     
-f1 = alpha * MixedL21Norm() 
+f1 = alpha * L2NormSquared() 
 f = BlockFunction(f1, f2)    
 
 # Setup and run the PDHG algorithm
@@ -156,11 +156,11 @@ plt.title('Noisy Data')
 plt.colorbar()
 plt.subplot(3,1,3)
 plt.imshow(pdhg.get_output().as_array())
-plt.title('TV Reconstruction')
+plt.title('Tikhonov Reconstruction')
 plt.colorbar()
 plt.show()
 plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), data.as_array()[int(N/2),:], label = 'GTruth')
-plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), pdhg.get_output().as_array()[int(N/2),:], label = 'TV reconstruction')
+plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), pdhg.get_output().as_array()[int(N/2),:], label = 'Tikhonov reconstruction')
 plt.legend()
 plt.title('Middle Line Profiles')
 plt.show()

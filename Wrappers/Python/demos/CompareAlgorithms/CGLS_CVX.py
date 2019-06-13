@@ -20,10 +20,10 @@
 #=========================================================================
 
 """ 
-Example for Least Squares minimisation with CG algorithm  (CGLS)
+Compare solutions of PDHG & "Block CGLS" algorithms for 
 
 
-Problem:     min_u || A u - g ||_{2}^{2}
+Problem:     min_x alpha * ||\grad x ||^{2}_{2} + || A x - g ||_{2}^{2}
 
 
              A: Projection operator
@@ -32,32 +32,26 @@ Problem:     min_u || A u - g ||_{2}^{2}
 """
 
 
-from ccpi.framework import ImageGeometry, ImageData, \
-                    AcquisitionGeometry, AcquisitionData
+from ccpi.framework import AcquisitionGeometry, BlockDataContainer, AcquisitionData
 
 import numpy as np 
 import numpy                          
 import matplotlib.pyplot as plt
-from ccpi.optimisation.algorithms import CGLS     
-import os
+
+from ccpi.optimisation.algorithms import CGLS
+       
+import os, sys
 from ccpi.astra.operators import AstraProjectorSimple 
-import tomophantom
-from tomophantom import TomoP2D
+from ccpi.framework import TestData
 
-# Load Shepp-Logan phantom 
-model = 1 # select a model number from the library
-N = 64 
-path = os.path.dirname(tomophantom.__file__)
-path_library2D = os.path.join(path, "Phantom2DLibrary.dat")
+# Load Data  
+loader = TestData(data_dir=os.path.join(sys.prefix, 'share','ccpi'))                 
+N = 50
+M = 50
+data = loader.load(TestData.SIMPLE_PHANTOM_2D, size=(N,M), scale=(0,1))
 
-#This will generate a N_size x N_size phantom (2D)
-phantom_2D = TomoP2D.Model(model, N, path_library2D)
+ig = data.geometry
 
-# Create image geometry
-ig = ImageGeometry(voxel_num_x = N, voxel_num_y = N)
-data = ImageData(phantom_2D)
-
-# Create Acquisition data
 detectors = N
 angles = np.linspace(0, np.pi, N, dtype=np.float32)
 
@@ -71,7 +65,8 @@ else:
 
 Aop = AstraProjectorSimple(ig, ag, dev)    
 sin = Aop.direct(data)
-projection_data = AcquisitionData(sin.as_array())
+
+noisy_data = AcquisitionData( sin.as_array())
 
 # Show Ground Truth and Noisy Data
 plt.figure(figsize=(10,10))
@@ -80,14 +75,14 @@ plt.imshow(data.as_array())
 plt.title('Ground Truth')
 plt.colorbar()
 plt.subplot(2,1,2)
-plt.imshow(projection_data.as_array())
-plt.title('Projection Data')
+plt.imshow(noisy_data.as_array())
+plt.title('Noisy Data')
 plt.colorbar()
 plt.show()
 
 # Setup and run the CGLS algorithm  
 x_init = ig.allocate()      
-cgls = CGLS(x_init=x_init, operator=Aop, data=projection_data)
+cgls = CGLS(x_init=x_init, operator=Aop, data=noisy_data)
 cgls.max_iteration = 2000
 cgls.update_objective_interval = 100
 cgls.run(2000,verbose=True)
@@ -98,8 +93,9 @@ plt.title('CGLS reconstruction')
 plt.colorbar()
 plt.show()
 
-# Check with CVX solution
+#%% Check with CVX solution
 
+from ccpi.optimisation.operators import SparseFiniteDiff
 import astra
 import numpy
 
@@ -124,9 +120,9 @@ if cvx_not_installable:
 
     ProjMat = astra.matrix.get(matrix_id)
     
-    tmp = projection_data.as_array().ravel()
+    tmp = noisy_data.as_array().ravel()
     
-    fidelity =  sum_squares(ProjMat * u - tmp)
+    fidelity = sum_squares(ProjMat * u - tmp)
 
     solver = MOSEK
     obj =  Minimize(fidelity)
@@ -150,11 +146,11 @@ if cvx_not_installable:
     plt.colorbar()    
     plt.show()    
     
-    plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), cgls.get_output().as_array()[int(N/2),:], label = 'CGLS')
-    plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), np.reshape(u.value, (N,N) )[int(N/2),:], label = 'CVX')
+    plt.plot(np.linspace(0,N,N), cgls.get_output().as_array()[int(N/2),:], label = 'PDHG')
+    plt.plot(np.linspace(0,N,N), np.reshape(u.value, (N,N) )[int(N/2),:], label = 'CVX')
     plt.legend()
     plt.title('Middle Line Profiles')
     plt.show()
             
     print('Primal Objective (CVX) {} '.format(obj.value))
-    print('Primal Objective (CGLS) {} '.format(cgls.objective[-1]))
+    print('Primal Objective (PDHG) {} '.format(cgls.objective[-1]))

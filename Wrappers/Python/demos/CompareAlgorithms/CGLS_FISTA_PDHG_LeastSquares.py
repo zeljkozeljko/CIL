@@ -22,9 +22,10 @@
 """ 
 Compare solutions of FISTA & PDHG 
                    & CGLS  & Astra Built-in algorithms for Least Squares
+                   & CVX
 
 
-Problem:     min_x || A x - g ||_{2}^{2}
+Problem:     min_u || A u - g ||_{2}^{2}
 
              A: Projection operator
              g: Sinogram
@@ -32,7 +33,7 @@ Problem:     min_x || A x - g ||_{2}^{2}
 """
 
 
-from ccpi.framework import ImageData, TestData, AcquisitionGeometry
+from ccpi.framework import ImageData, ImageGeometry, AcquisitionGeometry
 
 import numpy as np 
 import numpy                          
@@ -40,19 +41,33 @@ import matplotlib.pyplot as plt
 
 from ccpi.optimisation.algorithms import PDHG, CGLS, FISTA
 
-from ccpi.optimisation.functions import ZeroFunction, L2NormSquared, FunctionOperatorComposition
+from ccpi.optimisation.functions import ZeroFunction, L2NormSquared, L1Norm, FunctionOperatorComposition
 from ccpi.astra.ops import AstraProjectorSimple
 import astra   
-import os, sys
+import os
+import tomophantom
+from tomophantom import TomoP2D
 
 
 # Load Data 
-loader = TestData(data_dir=os.path.join(sys.prefix, 'share','ccpi'))  
-                     
-N = 50
-M = 50
-data = loader.load(TestData.SIMPLE_PHANTOM_2D, size=(N,M), scale=(0,1))
-ig = data.geometry
+#loader = TestData(data_dir=os.path.join(sys.prefix, 'share','ccpi'))                       
+#N = 50
+#M = 50
+#data = loader.load(TestData.SIMPLE_PHANTOM_2D, size=(N,M), scale=(0,1))
+#ig = data.geometry
+
+# Load Shepp-Logan phantom 
+model = 1 # select a model number from the library
+N = 64 
+path = os.path.dirname(tomophantom.__file__)
+path_library2D = os.path.join(path, "Phantom2DLibrary.dat")
+
+#This will generate a N_size x N_size phantom (2D)
+phantom_2D = TomoP2D.Model(model, N, path_library2D)
+
+# Create image geometry
+ig = ImageGeometry(voxel_num_x = N, voxel_num_y = N)
+data = ImageData(phantom_2D)
 
 detectors = N
 angles = np.linspace(0, np.pi, N, dtype=np.float32)
@@ -67,13 +82,13 @@ else:
 Aop = AstraProjectorSimple(ig, ag, dev)
 sin = Aop.direct(data)
 
-noisy_data = sin 
+projection_data = sin 
 
 ###############################################################################
 # Setup and run Astra CGLS algorithm
 vol_geom = astra.create_vol_geom(N, N)
 proj_geom = astra.create_proj_geom('parallel', 1.0, detectors, angles)
-proj_id = astra.create_projector('linear', proj_geom, vol_geom)
+proj_id = astra.create_projector('line', proj_geom, vol_geom)
 
 # Create a sinogram from a phantom
 sinogram_id, sinogram = astra.create_sino(data.as_array(), proj_id)
@@ -96,16 +111,16 @@ recon_cgls_astra = astra.data2d.get(rec_id)
 ###############################################################################
 # Setup and run the CGLS algorithm  
 x_init = ig.allocate()             
-cgls = CGLS(x_init=x_init, operator=Aop, data=noisy_data)
-cgls.max_iteration = 1000
+cgls = CGLS(x_init=x_init, operator=Aop, data=projection_data)
+cgls.max_iteration = 2000
 cgls.update_objective_interval = 200
-cgls.run(1000, verbose=False)
+cgls.run(2000, verbose=True)
 
 ###############################################################################
 # Setup and run the PDHG algorithm 
 operator = Aop
-f = L2NormSquared(b = noisy_data)
-g = ZeroFunction()
+f = L2NormSquared(b = projection_data)
+g = 0.0001 * L1Norm()
 
 ## Compute operator Norm
 normK = operator.norm()
@@ -114,20 +129,22 @@ normK = operator.norm()
 sigma = 1
 tau = 1/(sigma*normK**2)
 
-pdhg = PDHG(f=f,g=g,operator=operator, tau=tau, sigma=sigma, memopt=True)
-pdhg.max_iteration = 1000
+
+pdhg = PDHG(f=f,g=g,operator=operator, tau=tau, sigma=sigma)
+pdhg.max_iteration = 2000
 pdhg.update_objective_interval = 200
-pdhg.run(1000, verbose=True)
+pdhg.run(2000, verbose=True)
 
 ###############################################################################
 # Setup and run the FISTA algorithm 
-fidelity = FunctionOperatorComposition(L2NormSquared(b=noisy_data), Aop)
+fidelity = FunctionOperatorComposition(L2NormSquared(b=projection_data), Aop)
 regularizer = ZeroFunction()
 
 fista = FISTA(x_init=x_init , f=fidelity, g=regularizer)
-fista.max_iteration = 1000
+fista.max_iteration = 2000
 fista.update_objective_interval = 200
-fista.run(1000, verbose=True)
+fista.run(2000, verbose=True)
+
 
 #%% Show results
 
@@ -154,36 +171,18 @@ plt.imshow(recon_cgls_astra)
 plt.colorbar()
 plt.title('CGLS astra')
 
-diff1 = pdhg.get_output() - cgls.get_output()
-diff2 = fista.get_output() - cgls.get_output()
-diff3 = ImageData(recon_cgls_astra) - cgls.get_output()
+#% Middle line Profiles
+plt.figure(figsize=(10,10))
 
-plt.figure(figsize=(15,15))
-
-plt.subplot(3,1,1)
-plt.imshow(diff1.abs().as_array())
-plt.title('Diff PDHG vs CGLS')
-plt.colorbar()
-
-plt.subplot(3,1,2)
-plt.imshow(diff2.abs().as_array())
-plt.title('Diff FISTA vs CGLS')
-plt.colorbar()
-
-plt.subplot(3,1,3)
-plt.imshow(diff3.abs().as_array())
-plt.title('Diff CLGS astra vs CGLS')
-plt.colorbar()
-
-
-#%%
+plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), cgls.get_output().as_array()[int(N/2),:], label = 'CGLS')
+plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), recon_cgls_astra[int(N/2),:], label = 'CGLS_Astra')
+plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), pdhg.get_output().as_array()[int(N/2),:], label = 'PDHG')
+plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), fista.get_output().as_array()[int(N/2),:], label = 'FISTA')
+plt.legend()
+plt.title('Middle Line Profiles')
+plt.show()
 
 print('Primal Objective (FISTA) {} '.format(fista.objective[-1]))
 print('Primal Objective (CGLS) {} '.format(cgls.objective[-1]))
 print('Primal Objective (PDHG) {} '.format(pdhg.objective[-1][0]))
-
-
-true_obj = (Aop.direct(cglsd.get_output())-noisy_data).squared_norm()
-print('True objective {}'.format(true_obj))
-
 
