@@ -82,7 +82,8 @@ ag = AcquisitionGeometry('parallel','2D', angles, detectors)
 
 Aop = AstraProjectorSimple(ig, ag, dev)    
 sin = Aop.direct(data)
-noisy_data = AcquisitionData( sin.as_array() + np.random.normal(0,1,ig.shape))
+#noisy_data = AcquisitionData( sin.as_array() + np.random.normal(0,1,ig.shape))
+noisy_data = AcquisitionData( sin.as_array() )
 
 # Show Ground Truth and Noisy Data
 plt.figure(figsize=(10,10))

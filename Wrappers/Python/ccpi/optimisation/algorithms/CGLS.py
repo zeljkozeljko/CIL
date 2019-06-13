@@ -18,6 +18,7 @@
 #   limitations under the License.
 """
 Created on Thu Feb 21 11:11:23 2019
+
 @author: ofn77899
 """
 
@@ -28,6 +29,7 @@ import numpy
 class CGLS(Algorithm):
 
     '''Conjugate Gradient Least Squares algorithm
+
     Parameters:
       x_init: initial guess
       operator: operator for forward/backward projections
@@ -48,7 +50,7 @@ class CGLS(Algorithm):
     def set_up(self, x_init, operator , data ):
 
         self.r = data.copy()
-        self.x = x_init.copy()
+        self.x = x_init*0
 
         self.operator = operator
         self.d = operator.adjoint(self.r)
@@ -62,7 +64,8 @@ class CGLS(Algorithm):
         #self.normr2 = numpy.sqrt(self.normr2)
         #print ("set_up" , self.normr2)
         n = Norm2Sq(operator, self.data)
-        self.loss.append(n(x_init))
+#        self.loss.append(n(x_init))
+        self.loss.append(n(self.x))
         self.configured = True
 
     def update(self):
@@ -94,18 +97,15 @@ class CGLS(Algorithm):
         Ad = self.operator.direct(self.d)
         norm = Ad.squared_norm()
         if norm == 0.:
-            print ('cannot update solution')
+            print ('norm = 0 cannot update solution')
             raise StopIteration()
         alpha = self.normr2/norm
         if alpha == 0.:
-            print ('cannot update solution')
+            print ('alpha = 0 cannot update solution')
             raise StopIteration()
         self.d *= alpha
         Ad *= alpha
         self.r -= Ad
-#        if numpy.isnan(self.r.as_array()).any():
-#            print ("some nan")
-#            raise StopIteration()
         self.x += self.d
         
         self.operator.adjoint(self.r, out=self.s)
