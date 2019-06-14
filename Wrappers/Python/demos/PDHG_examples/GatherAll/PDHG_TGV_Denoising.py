@@ -127,7 +127,6 @@ elif noise == 'poisson':
 elif noise == 'gaussian':
     alpha = .2
 
-# TODO add ref why this choice
 beta = 2 * alpha
 
 # Fidelity

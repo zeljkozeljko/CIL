@@ -73,7 +73,7 @@ else:
 if len(sys.argv) > 1:
     which_noise = int(sys.argv[1])
 else:
-    which_noise = 2
+    which_noise = 0
 print ("Applying {} noise")
 
 if len(sys.argv) > 2:
@@ -182,7 +182,6 @@ plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), pdhg.get_output().as_array()[in
 plt.legend()
 plt.title('Middle Line Profiles')
 plt.show()
-
 
 
 ##%% Check with CVX solution

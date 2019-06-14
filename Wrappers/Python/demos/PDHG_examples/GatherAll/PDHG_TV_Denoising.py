@@ -73,18 +73,18 @@ else:
 if len(sys.argv) > 1:
     which_noise = int(sys.argv[1])
 else:
-    which_noise = 0
+    which_noise = 2
 print ("Applying {} noise")
 
 if len(sys.argv) > 2:
     method = sys.argv[2]
 else:
-    method = '0'
+    method = '1'
 print ("method ", method)
 
 
 loader = TestData(data_dir=os.path.join(sys.prefix, 'share','ccpi'))
-data = loader.load(TestData.SHAPES, size=(50,50))
+data = loader.load(TestData.SHAPES)
 ig = data.geometry
 ag = ig
 
@@ -166,50 +166,26 @@ pdhg.max_iteration = 2000
 pdhg.update_objective_interval = 100
 pdhg.run(2000)
 
-
-if data.geometry.channels > 1:
-    plt.figure(figsize=(20,15))
-    for row in range(data.geometry.channels):
-        
-        plt.subplot(3,4,1+row*4)
-        plt.imshow(data.subset(channel=row).as_array())
-        plt.title('Ground Truth')
-        plt.colorbar()
-        plt.subplot(3,4,2+row*4)
-        plt.imshow(noisy_data.subset(channel=row).as_array())
-        plt.title('Noisy Data')
-        plt.colorbar()
-        plt.subplot(3,4,3+row*4)
-        plt.imshow(pdhg.get_output().subset(channel=row).as_array())
-        plt.title('TV Reconstruction')
-        plt.colorbar()
-        plt.subplot(3,4,4+row*4)
-        plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), data.subset(channel=row).as_array()[int(N/2),:], label = 'GTruth')
-        plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), pdhg.get_output().subset(channel=row).as_array()[int(N/2),:], label = 'TV reconstruction')
-        plt.legend()
-        plt.title('Middle Line Profiles')
-    plt.show()
-    
-else:
-    plt.figure(figsize=(20,5))
-    plt.subplot(1,4,1)
-    plt.imshow(data.subset(channel=0).as_array())
-    plt.title('Ground Truth')
-    plt.colorbar()
-    plt.subplot(1,4,2)
-    plt.imshow(noisy_data.subset(channel=0).as_array())
-    plt.title('Noisy Data')
-    plt.colorbar()
-    plt.subplot(1,4,3)
-    plt.imshow(pdhg.get_output().subset(channel=0).as_array())
-    plt.title('TV Reconstruction')
-    plt.colorbar()
-    plt.subplot(1,4,4)
-    plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), data.as_array()[int(ig.shape[0]/2),:], label = 'GTruth')
-    plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), pdhg.get_output().as_array()[int(ig.shape[0]/2),:], label = 'TV reconstruction')
-    plt.legend()
-    plt.title('Middle Line Profiles')
-    plt.show()
+# Show results
+plt.figure(figsize=(20,5))
+plt.subplot(1,4,1)
+plt.imshow(data.subset(channel=0).as_array())
+plt.title('Ground Truth')
+plt.colorbar()
+plt.subplot(1,4,2)
+plt.imshow(noisy_data.subset(channel=0).as_array())
+plt.title('Noisy Data')
+plt.colorbar()
+plt.subplot(1,4,3)
+plt.imshow(pdhg.get_output().subset(channel=0).as_array())
+plt.title('TV Reconstruction')
+plt.colorbar()
+plt.subplot(1,4,4)
+plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), data.as_array()[int(ig.shape[0]/2),:], label = 'GTruth')
+plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), pdhg.get_output().as_array()[int(ig.shape[0]/2),:], label = 'TV reconstruction')
+plt.legend()
+plt.title('Middle Line Profiles')
+plt.show()
 
 
 #%% Check with CVX solution
