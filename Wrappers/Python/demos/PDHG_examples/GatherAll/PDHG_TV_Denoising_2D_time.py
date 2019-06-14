@@ -135,13 +135,13 @@ tau2 = 1/(sigma2*normK2**2)
 pdhg1 = PDHG(f=f,g=g,operator=operator1, tau=tau1, sigma=sigma1)
 pdhg1.max_iteration = 2000
 pdhg1.update_objective_interval = 200
-pdhg1.run(20)
+pdhg1.run(1000)
 
 # Setup and run the PDHG algorithm
 pdhg2 = PDHG(f=f,g=g,operator=operator2, tau=tau2, sigma=sigma2)
 pdhg2.max_iteration = 2000
 pdhg2.update_objective_interval = 200
-pdhg2.run(20)
+pdhg2.run(1000)
 
 #%%
 tindex = [8, 16, 24]

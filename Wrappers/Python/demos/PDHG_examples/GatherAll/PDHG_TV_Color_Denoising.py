@@ -30,8 +30,7 @@ Problem:     min_u  \alpha * ||\nabla u||_{2,1} + ||x-g||_{1}
              g: Noisy Data with Salt & Pepper Noise
              
              K = \nabla    
-             
-             
+                          
 """
 
 import numpy                          
@@ -126,14 +125,11 @@ plt.figure(figsize=(10,10))
 plt.subplot(1,3,1)
 plt.imshow(data.as_array())
 plt.title('Ground Truth')
-plt.colorbar()
 plt.subplot(1,3,2)
 plt.imshow(noisy_data.as_array())
 plt.title('Noisy Data')
-plt.colorbar()
 plt.subplot(1,3,3)
 plt.imshow(pdhg1.get_output().as_array())
 plt.title('TV Reconstruction')
-plt.colorbar()
 plt.show()
 
