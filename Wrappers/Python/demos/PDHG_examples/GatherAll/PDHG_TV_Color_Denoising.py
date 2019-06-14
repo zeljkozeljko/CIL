@@ -51,7 +51,7 @@ else:
 if len(sys.argv) > 1:
     which_noise = int(sys.argv[1])
 else:
-    which_noise = 1
+    which_noise = 0
 print ("Applying {} noise")
 
 loader = TestData(data_dir=os.path.join(sys.prefix, 'share','ccpi'))
