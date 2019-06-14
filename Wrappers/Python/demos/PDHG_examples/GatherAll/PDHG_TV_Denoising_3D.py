@@ -123,7 +123,6 @@ plt.imshow(noisy_data.as_array()[:,:,sliceSel],vmin=0, vmax=1)
 plt.axis('off')
 plt.title('Sagittal View')
 
-
 plt.subplot(2,3,4)
 plt.imshow(pdhg.get_output().as_array()[sliceSel,:,:],vmin=0, vmax=1)
 plt.axis('off')
