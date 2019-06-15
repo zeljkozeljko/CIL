@@ -61,7 +61,7 @@ else:
     which_noise = 0
     
 model = 1 # select a model number from the library
-N = 64 # set dimension of the phantom
+N = 128 # set dimension of the phantom
 path = os.path.dirname(tomophantom.__file__)
 path_library2D = os.path.join(path, "Phantom2DLibrary.dat")
 
@@ -75,8 +75,7 @@ angles = np.linspace(0, np.pi, 180)
 ag = AcquisitionGeometry('parallel','2D',angles, detectors)
 
 # Select device
-device = '0'
-#device = input('Available device: GPU==1 / CPU==0 ')
+device = input('Available device: GPU==1 / CPU==0 ')
 if device=='1':
     dev = 'gpu'
 else:
@@ -130,10 +129,10 @@ if noise == 'poisson':
     tau = 1/(sigma*normK**2)    
     
 elif noise == 'gaussian':   
-    alpha = 100
+    alpha = 200
     f2 = 0.5 * L2NormSquared(b=noisy_data)                                         
     g = ZeroFunction()
-    sigma = 1
+    sigma = 10
     tau = 1/(sigma*normK**2)     
     
 f1 = alpha * L2NormSquared() 
@@ -141,9 +140,9 @@ f = BlockFunction(f1, f2)
 
 # Setup and run the PDHG algorithm
 pdhg = PDHG(f=f,g=g,operator=operator, tau=tau, sigma=sigma)
-pdhg.max_iteration = 2000
+pdhg.max_iteration = 1000
 pdhg.update_objective_interval = 200
-pdhg.run(2000)
+pdhg.run(1000)
 
 plt.figure(figsize=(15,15))
 plt.subplot(3,1,1)

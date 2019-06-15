@@ -68,7 +68,7 @@ from tomophantom import TomoP2D
 if len(sys.argv) > 1:
     which_noise = int(sys.argv[1])
 else:
-    which_noise = 1 
+    which_noise = 1
     
 # Load Piecewise smooth Shepp-Logan phantom 
 model = 2 # select a model number from the library
@@ -85,11 +85,11 @@ data = ImageData(phantom_2D)
 
 #Create Acquisition Data 
 detectors = N
-angles = np.linspace(0, np.pi, N)
+angles = np.linspace(0, np.pi, 180)
 ag = AcquisitionGeometry('parallel','2D',angles, detectors)
 
-#device = input('Available device: GPU==1 / CPU==0 ')
-device = '0'
+device = input('Available device: GPU==1 / CPU==0 ')
+
 if device=='1':
     dev = 'gpu'
 else:
@@ -167,9 +167,9 @@ normK = operator.norm()
 
 # Setup and run the PDHG algorithm
 pdhg = PDHG(f=f,g=g,operator=operator, tau=tau, sigma=sigma)
-pdhg.max_iteration = 3000
-pdhg.update_objective_interval = 500
-pdhg.run(3000)
+pdhg.max_iteration = 1000
+pdhg.update_objective_interval = 200
+pdhg.run(1000)
 
 plt.figure(figsize=(15,15))
 plt.subplot(3,1,1)
