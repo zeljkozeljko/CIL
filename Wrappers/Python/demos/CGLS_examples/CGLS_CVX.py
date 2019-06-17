@@ -46,7 +46,7 @@ from tomophantom import TomoP2D
 
 # Load Shepp-Logan phantom 
 model = 1 # select a model number from the library
-N = 64 
+N = 128 
 path = os.path.dirname(tomophantom.__file__)
 path_library2D = os.path.join(path, "Phantom2DLibrary.dat")
 
@@ -59,7 +59,7 @@ data = ImageData(phantom_2D)
 
 # Create Acquisition data
 detectors = N
-angles = np.linspace(0, np.pi, N, dtype=np.float32)
+angles = np.linspace(0, np.pi, 180, dtype=np.float32)
 
 ag = AcquisitionGeometry('parallel','2D', angles, detectors)
 
@@ -88,9 +88,9 @@ plt.show()
 # Setup and run the CGLS algorithm  
 x_init = ig.allocate()      
 cgls = CGLS(x_init=x_init, operator=Aop, data=projection_data)
-cgls.max_iteration = 2000
+cgls.max_iteration = 5000
 cgls.update_objective_interval = 100
-cgls.run(2000,verbose=True)
+cgls.run(1000,verbose=True)
 
 plt.figure(figsize=(5,5))
 plt.imshow(cgls.get_output().as_array())
@@ -98,7 +98,13 @@ plt.title('CGLS reconstruction')
 plt.colorbar()
 plt.show()
 
+
+#%%
 # Check with CVX solution
+
+print('If N > {} : CVX solution will take some time '.format(128))
+
+
 
 import astra
 import numpy

@@ -121,69 +121,69 @@ plt.show()
 
 #%% Check with CVX solution
 
-from ccpi.optimisation.operators import SparseFiniteDiff
-import astra
-import numpy
-
-try:
-    from cvxpy import *
-    cvx_not_installable = True
-except ImportError:
-    cvx_not_installable = False
-    
-if cvx_not_installable:
-    
-    DY = SparseFiniteDiff(ig, direction=0, bnd_cond='Neumann')
-    DX = SparseFiniteDiff(ig, direction=1, bnd_cond='Neumann')
-    
-    ##Construct problem    
-    u = Variable(N*N)
-
-    # create matrix representation for Astra operator
-    vol_geom = astra.create_vol_geom(N, N)
-    proj_geom = astra.create_proj_geom('parallel', 1.0, detectors, angles)
-
-    proj_id = astra.create_projector('line', proj_geom, vol_geom)
-
-    matrix_id = astra.projector.matrix(proj_id)
-
-    ProjMat = astra.matrix.get(matrix_id)
-    
-    tmp = noisy_data.as_array().ravel()
-    
-    fidelity = sum_squares(ProjMat * u - tmp)
-    regulariser = (alpha**2) * sum_squares(norm(vstack([DX.matrix() * vec(u), DY.matrix() * vec(u)]), 2, axis = 0))
-
-    solver = MOSEK
-    obj =  Minimize(fidelity + regulariser)
-    prob = Problem(obj)
-    result = prob.solve(verbose = True, solver = solver)    
-         
-    diff_cvx = numpy.abs( cgls.get_output().as_array() - np.reshape(u.value, (N,N) ))
-           
-    plt.figure(figsize=(15,15))
-    plt.subplot(3,1,1)
-    plt.imshow(cgls.get_output().as_array())
-    plt.title('CGLS solution')
-    plt.colorbar()
-    plt.subplot(3,1,2)
-    plt.imshow(np.reshape(u.value, (N, N)))
-    plt.title('CVX solution')
-    plt.colorbar()
-    plt.subplot(3,1,3)
-    plt.imshow(diff_cvx)
-    plt.title('Diff')
-    plt.colorbar()    
-    plt.show()    
-    
-    plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), cgls.get_output().as_array()[int(N/2),:], label = 'CGLS')
-    plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), np.reshape(u.value, (N,N) )[int(N/2),:], label = 'CVX')
-    plt.legend()
-    plt.title('Middle Line Profiles')
-    plt.show()
-            
-    print('Primal Objective (CVX) {} '.format(obj.value))
-    print('Primal Objective (CGLS) {} '.format(cgls.objective[-1]))
+#from ccpi.optimisation.operators import SparseFiniteDiff
+#import astra
+#import numpy
+#
+#try:
+#    from cvxpy import *
+#    cvx_not_installable = True
+#except ImportError:
+#    cvx_not_installable = False
+#    
+#if cvx_not_installable:
+#    
+#    DY = SparseFiniteDiff(ig, direction=0, bnd_cond='Neumann')
+#    DX = SparseFiniteDiff(ig, direction=1, bnd_cond='Neumann')
+#    
+#    ##Construct problem    
+#    u = Variable(N*N)
+#
+#    # create matrix representation for Astra operator
+#    vol_geom = astra.create_vol_geom(N, N)
+#    proj_geom = astra.create_proj_geom('parallel', 1.0, detectors, angles)
+#
+#    proj_id = astra.create_projector('line', proj_geom, vol_geom)
+#
+#    matrix_id = astra.projector.matrix(proj_id)
+#
+#    ProjMat = astra.matrix.get(matrix_id)
+#    
+#    tmp = noisy_data.as_array().ravel()
+#    
+#    fidelity = sum_squares(ProjMat * u - tmp)
+#    regulariser = (alpha**2) * sum_squares(norm(vstack([DX.matrix() * vec(u), DY.matrix() * vec(u)]), 2, axis = 0))
+#
+#    solver = MOSEK
+#    obj =  Minimize(fidelity + regulariser)
+#    prob = Problem(obj)
+#    result = prob.solve(verbose = True, solver = solver)    
+#         
+#    diff_cvx = numpy.abs( cgls.get_output().as_array() - np.reshape(u.value, (N,N) ))
+#           
+#    plt.figure(figsize=(15,15))
+#    plt.subplot(3,1,1)
+#    plt.imshow(cgls.get_output().as_array())
+#    plt.title('CGLS solution')
+#    plt.colorbar()
+#    plt.subplot(3,1,2)
+#    plt.imshow(np.reshape(u.value, (N, N)))
+#    plt.title('CVX solution')
+#    plt.colorbar()
+#    plt.subplot(3,1,3)
+#    plt.imshow(diff_cvx)
+#    plt.title('Diff')
+#    plt.colorbar()    
+#    plt.show()    
+#    
+#    plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), cgls.get_output().as_array()[int(N/2),:], label = 'CGLS')
+#    plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), np.reshape(u.value, (N,N) )[int(N/2),:], label = 'CVX')
+#    plt.legend()
+#    plt.title('Middle Line Profiles')
+#    plt.show()
+#            
+#    print('Primal Objective (CVX) {} '.format(obj.value))
+#    print('Primal Objective (CGLS) {} '.format(cgls.objective[-1]))
 
 
 
