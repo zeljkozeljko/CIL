@@ -29,7 +29,7 @@ from ccpi.optimisation.operators import BlockOperator, Gradient
 from ccpi.optimisation.functions import ZeroFunction, KullbackLeibler, \
                       MixedL21Norm, BlockFunction
 
-from ccpi.astra.operators import AstraProjectorMC, AstraProjectorSimple
+from ccpi.astra.operators import AstraProjectorMC
 
 import os
 import tomophantom
@@ -94,15 +94,10 @@ operator = BlockOperator(op1, op2, shape=(2,1) )
       
 f1 = alpha * MixedL21Norm()
 f2 = KullbackLeibler(noisy_data)    
-f = BlockFunction(f1, f2)  
-                                      
+f = BlockFunction(f1, f2)
 g = ZeroFunction()
     
-# Compute operator Norm
-igtmp = ImageGeometry(voxel_num_x = N, voxel_num_y = N)
-agtmp = AcquisitionGeometry('parallel','2D', angles, detectors)
-Atmp = AstraProjectorSimple(igtmp, agtmp, dev)
-normK = np.sqrt(op1.norm()**2 + Atmp.norm()**2)
+normK = operator.norm()
 
 # Primal & dual stepsizes
 sigma = 5
