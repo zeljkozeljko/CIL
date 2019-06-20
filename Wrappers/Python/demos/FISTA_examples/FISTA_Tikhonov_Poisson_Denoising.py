@@ -35,7 +35,6 @@ Problem:     min_u, u>0  \alpha * ||\nabla x||_{2}^{2} + \int x - g * log(x)
 """
 
 from ccpi.framework import ImageData
-
 import numpy as np 
 import numpy                          
 import matplotlib.pyplot as plt
@@ -45,21 +44,21 @@ from ccpi.optimisation.algorithms import FISTA
 from ccpi.optimisation.operators import Gradient
 from ccpi.optimisation.functions import KullbackLeibler, L2NormSquared, FunctionOperatorComposition
 
-from ccpi.framework import TestData
 import os, sys
-from skimage.util import random_noise
+if int(numpy.version.version.split('.')[1]) > 12:
+    from skimage.util import random_noise
+else:
+    from demoutil import random_noise
+from ccpi.framework import TestData
 
 loader = TestData(data_dir=os.path.join(sys.prefix, 'share','ccpi'))
-# Load Data                      
-N = 100
-M = 100
-data = loader.load(TestData.SIMPLE_PHANTOM_2D, size=(N,M), scale=(0,1))
-
+data = loader.load(TestData.SHAPES)
 ig = data.geometry
 ag = ig
 
 # Create Noisy data with Poisson noise
-n1 = random_noise(data.as_array(), mode = 'poisson', seed = 10)
+scale = 5
+n1 = random_noise( data.as_array()/scale, mode = 'poisson', seed = 10)*scale
 noisy_data = ImageData(n1)
 
 # Show Ground Truth and Noisy Data
@@ -75,7 +74,7 @@ plt.colorbar()
 plt.show()
 
 # Regularisation Parameter
-alpha = 1
+alpha = 10
 
 # Setup and run the FISTA algorithm
 operator = Gradient(ig)
@@ -113,9 +112,9 @@ reg = FunctionOperatorComposition(alpha * L2NormSquared(), operator)
 
 x_init = ig.allocate()
 fista = FISTA(x_init=x_init , f=reg, g=fid)
-fista.max_iteration = 2000
+fista.max_iteration = 3000
 fista.update_objective_interval = 500
-fista.run(2000, verbose=True)
+fista.run(3000, verbose=True)
 
 # Show results
 plt.figure(figsize=(15,15))
@@ -133,8 +132,8 @@ plt.title('Reconstruction')
 plt.colorbar()
 plt.show()
 
-plt.plot(np.linspace(0,N,M), data.as_array()[int(N/2),:], label = 'GTruth')
-plt.plot(np.linspace(0,N,M), fista.get_output().as_array()[int(N/2),:], label = 'Reconstruction')
+plt.plot(np.linspace(0,ig.shape[0],ig.shape[1]), data.as_array()[int(N/2),:], label = 'GTruth')
+plt.plot(np.linspace(0,ig.shape[0],ig.shape[1]), fista.get_output().as_array()[int(N/2),:], label = 'Reconstruction')
 plt.legend()
 plt.title('Middle Line Profiles')
 plt.show()
@@ -171,7 +170,8 @@ if cvx_not_installable:
     result = prob.solve(verbose = True, solver = solver)
     
     diff_cvx = numpy.abs( fista.get_output().as_array() - u1.value )
-        
+     
+    
     plt.figure(figsize=(15,15))
     plt.subplot(3,1,1)
     plt.imshow(fista.get_output().as_array())
@@ -187,8 +187,9 @@ if cvx_not_installable:
     plt.colorbar()
     plt.show()    
     
-    plt.plot(np.linspace(0,N,M), fista.get_output().as_array()[int(N/2),:], label = 'FISTA')
-    plt.plot(np.linspace(0,N,M), u1.value[int(N/2),:], label = 'CVX')
+    
+    plt.plot(np.linspace(0,ig.shape[0],ig.shape[1]), fista.get_output().as_array()[int(N/2),:], label = 'FISTA')
+    plt.plot(np.linspace(0,ig.shape[0],ig.shape[1]), u1.value[int(N/2),:], label = 'CVX')
     plt.legend()
     plt.title('Middle Line Profiles')
     plt.show()

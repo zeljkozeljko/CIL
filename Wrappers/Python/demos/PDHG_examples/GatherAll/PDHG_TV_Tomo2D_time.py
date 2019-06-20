@@ -64,7 +64,6 @@ for sl in range(0,np.shape(phantom_2Dt)[0]):
 ani1 = animation.ArtistAnimation(fig, ims1, interval=500,repeat_delay=10)
 plt.show() 
 
-    
 ig = ImageGeometry(voxel_num_x = N, voxel_num_y = N, channels = np.shape(phantom_2Dt)[0])
 data = ImageData(phantom_2Dt, geometry=ig)
 
