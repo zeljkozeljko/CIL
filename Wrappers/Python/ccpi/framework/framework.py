@@ -344,6 +344,7 @@ class AcquisitionGeometry(object):
         else:
             out = AcquisitionData(geometry=self, dimension_labels=dimension_labels)
         if isinstance(value, Number):
+            print ("value", value)
             if value != 0:
                 out += value
         else:
@@ -377,7 +378,7 @@ class DataContainer(object):
         self.number_of_dimensions = len (self.shape)
         self.dimension_labels = {}
         self.geometry = None # Only relevant for AcquisitionData and ImageData
-        self.algebra_method = kwargs.get('algebra', 'numba')
+        self.algebra_method = kwargs.get('algebra', 'numpy')
         
         if dimension_labels is not None and \
            len (dimension_labels) == self.number_of_dimensions:
@@ -1374,198 +1375,40 @@ class PixelByPixelDataProcessor(DataProcessor):
 @jit(nopython=True)
 def numba_algebra(x,y,operation,out):
     N = x.size
-    ndims = len(x.shape)
     if operation == 0:
-        if ndims == 1:
-            for i in prange(N):
-                out[i] = x[i] + y[i]
-        elif ndims == 2:
-            for i in prange(x.shape[0]):
-                for j in range(x.shape[1]):
-                    out[i][j] = x[i][j] + y[i][j]
-        elif ndims == 3:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        out[i][j][k] = x[i][j][k] + y[i][j][k]
-        elif ndims == 4:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        for c in range(x.shape[3]):
-                            out[i][j][k][c] = x[i][j][k][c] + y[i][j][k][c]
-        
+        for i in prange(N):
+            out.flat[i] = x.flat[i] + y.flat[i]
     elif operation == 1:
-        if ndims == 1:
-            for i in prange(N):
-                out[i] = x[i] - y[i]
-        elif ndims == 2:
-            for i in prange(x.shape[0]):
-                for j in range(x.shape[1]):
-                    out[i][j] = x[i][j] - y[i][j]
-        elif ndims == 3:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        out[i][j][k] = x[i][j][k] - y[i][j][k]
-        elif ndims == 4:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        for c in range(x.shape[3]):
-                            out[i][j][k][c] = x[i][j][k][c] - y[i][j][k][c]
-       
+        for i in prange(N):
+            out.flat[i] = x.flat[i] - y.flat[i]
     elif operation == 2:
-        if ndims == 1:
-            for i in prange(N):
-                out[i] = x[i] * y[i]
-        elif ndims == 2:
-            for i in prange(x.shape[0]):
-                for j in range(x.shape[1]):
-                    out[i][j] = x[i][j] * y[i][j]
-        elif ndims == 3:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        out[i][j][k] = x[i][j][k] * y[i][j][k]
-        elif ndims == 4:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        for c in range(x.shape[3]):
-                            out[i][j][k][c] = x[i][j][k][c] * y[i][j][k][c]
+        for i in prange(N):
+            out.flat[i] = x.flat[i] * y.flat[i]
     elif operation == 3:
-        if ndims == 1:
-            for i in prange(N):
-                if y[i] != 0:
-                    out[i] = x[i] / y[i]
-                else:
-                    out[i] = 0
-        elif ndims == 2:
-            for i in prange(x.shape[0]):
-                for j in range(x.shape[1]):
-                    if  y[i][j] != 0:
-                        out[i][j] = x[i][j] /  y[i][j]
-                    else:
-                        out[i][j] = 0
-        elif ndims == 3:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        out[i][j][k] = x[i][j][k] / y[i][j][k] 
-                        if y[i][j][k] != 0:
-                            out[i][j][k] = x[i][j][k] / y[i][j][k]
-                        else:
-                            out[i][j][k] = 0
-        elif ndims == 4:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        for c in range(x.shape[3]):
-                            out[i][j][k][c] = x[i][j][k][c] / y[i][j][k][c]
-                            if y[i][j][k][c] != 0:
-                                out[i][j][k][c] = x[i][j][k][c] / y[i][j][k][c]
-                            else:
-                                out[i][j][k][c] = 0
-        
-    
+        for i in prange(N):
+            if y.flat[i] != 0:
+                out.flat[i] = x.flat[i] / y.flat[i]
+            else:
+                out.flat[i] = 0
 
-@jit
+@jit(nopython=True)
 def numba_algebra_scalar(x,y,operation,out):
     N = x.size
-    ndims = len(x.shape)
     if operation == 0:
-        if ndims == 1:
-            for i in prange(N):
-                out[i] = x[i] + y
-        elif ndims == 2:
-            for i in prange(x.shape[0]):
-                for j in range(x.shape[1]):
-                    out[i][j] = x[i][j] + y
-        elif ndims == 3:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        out[i][j][k] = x[i][j][k] + y
-        elif ndims == 4:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        for c in range(x.shape[2]):
-                            out[i][j][k][c] = x[i][j][k][c] + y
-        
+        for i in prange(N):
+            out.flat[i] = x.flat[i] + y
     elif operation == 1:
-        if ndims == 1:
-            for i in prange(N):
-                out[i] = x[i] - y
-        elif ndims == 2:
-            for i in prange(x.shape[0]):
-                for j in range(x.shape[1]):
-                    out[i][j] = x[i][j] - y
-        elif ndims == 3:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        out[i][j][k] = x[i][j][k] - y
-        elif ndims == 4:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        for c in range(x.shape[3]):
-                            out[i][j][k][c] = x[i][j][k][c] - y
-       
+        for i in prange(N):
+            out.flat[i] = x.flat[i] - y
     elif operation == 2:
-        if ndims == 1:
-            for i in prange(N):
-                out[i] = x[i] * y
-        elif ndims == 2:
-            for i in prange(x.shape[0]):
-                for j in range(x.shape[1]):
-                    out[i][j] = x[i][j] * y
-        elif ndims == 3:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        out[i][j][k] = x[i][j][k] * y
-        elif ndims == 4:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        for c in range(x.shape[3]):
-                            out[i][j][k][c] = x[i][j][k][c] * y
+        for i in prange(N):
+            out.flat[i] = x.flat[i] * y
     elif operation == 3:
-        if ndims == 1:
-            for i in prange(N):
-                if y[i] != 0:
-                    out[i] = x[i] / y
-                else:
-                    out[i] = 0
-        elif ndims == 2:
-            for i in prange(x.shape[0]):
-                for j in range(x.shape[1]):
-                    if  y != 0:
-                        out[i][j] = x[i][j] /  y
-                    else:
-                        out[i][j] = 0
-        elif ndims == 3:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        out[i][j][k] = x[i][j][k] / y[i][j][k] 
-                        if y != 0:
-                            out[i][j][k] = x[i][j][k] / y
-                        else:
-                            out[i][j][k] = 0
-        elif ndims == 4:
-            for i in prange(x.shape[0]):
-                for j in prange(x.shape[1]):
-                    for k in range(x.shape[2]):
-                        for c in range(x.shape[3]):
-                            if y!= 0:
-                                out[i][j][k][c] = x[i][j][k][c] / y
-                            else:
-                                out[i][j][k][c] = 0
-
+        for i in prange(N):
+            if y != 0:
+                out.flat[i] = x.flat[i] / y
+            else:
+                out.flat[i] = 0
 
         
         

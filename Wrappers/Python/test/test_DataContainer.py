@@ -578,7 +578,7 @@ class TestDataContainer(unittest.TestCase):
         self.assertEqual(0,sino.as_array()[0][0][0][0])
         self.assertEqual(0,sino.as_array()[shape[0]-1][shape[1]-1][shape[2]-1][shape[3]-1])
         
-        sino = ageometry.allocate(1)
+        sino = ageometry.allocate(value=1)
         self.assertEqual(1,sino.as_array()[0][0][0][0])
         self.assertEqual(1,sino.as_array()[shape[0]-1][shape[1]-1][shape[2]-1][shape[3]-1])
         print (sino.dimension_labels, sino.shape, ageometry)
@@ -611,7 +611,8 @@ class TestDataContainer(unittest.TestCase):
             numpy.testing.assert_array_equal(first, second)
         except AssertionError as err:
             res = False
-            print(err)
+            print("expected " , second)
+            print("actual " , first)
         self.assertTrue(res)
 
     def assertNumpyArrayAlmostEqual(self, first, second, decimal=6):
