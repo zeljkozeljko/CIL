@@ -27,6 +27,8 @@ import warnings
 from functools import reduce
 from numbers import Number
 
+from numba import jit, prange
+
 def find_key(dic, val):
     """return the key of dictionary dic given the value"""
     return [k for k, v in dic.items() if v == val][0]
@@ -375,6 +377,7 @@ class DataContainer(object):
         self.number_of_dimensions = len (self.shape)
         self.dimension_labels = {}
         self.geometry = None # Only relevant for AcquisitionData and ImageData
+        self.algebra_method = kwargs.get('algebra', 'numba')
         
         if dimension_labels is not None and \
            len (dimension_labels) == self.number_of_dimensions:
@@ -675,20 +678,51 @@ class DataContainer(object):
         '''alias of clone'''    
         return self.clone()
     
-    ## binary operations
-            
+
+    def map_algebra(self, operation):
+        if operation == numpy.add:
+            return 0
+        elif operation == numpy.subtract:
+            return 1
+        elif operation == numpy.multiply:
+            return 2
+        elif operation == numpy.divide:
+            return 3
+        elif operation == numpy.power:
+            return 4
+        elif operation == numpy.minimum:
+            return 5
+        elif operation == numpy.maximum:
+            return 6
+        
+
+    
+
+
+    ## binary operations            
     def pixel_wise_binary(self, pwop, x2, *args,  **kwargs):    
         out = kwargs.get('out', None)
+        impl = kwargs.pop('impl', 'numpy')
+        if len(self.shape)>3:
+            impl = numpy
         
         if out is None:
-            if isinstance(x2, (int, float, complex)):
-                out = pwop(self.as_array() , x2 , *args, **kwargs )
-            elif isinstance(x2, (numpy.int, numpy.int8, numpy.int16, numpy.int32, numpy.int64,\
+            if isinstance(x2, (Number, numpy.int, numpy.int8, numpy.int16, numpy.int32, numpy.int64,\
                                  numpy.float, numpy.float16, numpy.float32, numpy.float64, \
                                  numpy.complex)):
-                out = pwop(self.as_array() , x2 , *args, **kwargs )
+                if impl == 'numpy':
+                    out = pwop(self.as_array() , x2 , *args, **kwargs )
+                elif impl == 'numba':
+                    out = numpy.empty_like(self.as_array())
+                    numba_algebra_scalar(self.as_array(), x2, self.map_algebra(pwop), out)
+
             elif issubclass(type(x2) , DataContainer):
-                out = pwop(self.as_array() , x2.as_array() , *args, **kwargs )
+                if impl == 'numpy':
+                    out = pwop(self.as_array() , x2.as_array() , *args, **kwargs )
+                elif impl == 'numba':
+                    out = numpy.empty_like(self.as_array())
+                    numba_algebra(self.as_array(), x2.as_array(), self.map_algebra(pwop), out)
+
             return type(self)(out,
                    deep_copy=False, 
                    dimension_labels=self.dimension_labels,
@@ -698,7 +732,10 @@ class DataContainer(object):
         elif issubclass(type(out), DataContainer) and issubclass(type(x2), DataContainer):
             if self.check_dimensions(out) and self.check_dimensions(x2):
                 kwargs['out'] = out.as_array()
-                pwop(self.as_array(), x2.as_array(), *args, **kwargs )
+                if impl == 'numpy':
+                    pwop(self.as_array(), x2.as_array(), *args, **kwargs )
+                elif impl == 'numba':
+                    numba_algebra(self.as_array(), x2.as_array(), self.map_algebra(pwop), out.as_array())
                 #return type(self)(out.as_array(),
                 #       deep_copy=False, 
                 #       dimension_labels=self.dimension_labels,
@@ -713,12 +750,17 @@ class DataContainer(object):
                              numpy.float64, numpy.complex)):
             if self.check_dimensions(out):
                 kwargs['out']=out.as_array()
-                pwop(self.as_array(), x2, *args, **kwargs )
+                if impl == 'numpy':
+                    pwop(self.as_array(), x2, *args, **kwargs )
+                elif impl == 'numba':
+                    numba_algebra_scalar(self.as_array(), x2, self.map_algebra(pwop), out.as_array())
                 return out
             else:
                 raise ValueError(message(type(self),"Wrong size for data memory: ", out.shape,self.shape))
         elif issubclass(type(out), numpy.ndarray):
+            # FIXME Remove this option
             if self.array.shape == out.shape and self.array.dtype == out.dtype:
+                print ("does it go here??? really?", impl)
                 kwargs['out'] = out
                 pwop(self.as_array(), x2, *args, **kwargs)
                 #return type(self)(out,
@@ -729,36 +771,43 @@ class DataContainer(object):
             raise ValueError (message(type(self),  "incompatible class:" , pwop.__name__, type(out)))
     
     def add(self, other, *args, **kwargs):
+        kwargs['impl'] = self.algebra_method
         if hasattr(other, '__container_priority__') and \
            self.__class__.__container_priority__ < other.__class__.__container_priority__:
             return other.add(self, *args, **kwargs)
         return self.pixel_wise_binary(numpy.add, other, *args, **kwargs)
     
     def subtract(self, other, *args, **kwargs):
+        kwargs['impl'] = self.algebra_method
         if hasattr(other, '__container_priority__') and \
            self.__class__.__container_priority__ < other.__class__.__container_priority__:
             return other.subtract(self, *args, **kwargs)
         return self.pixel_wise_binary(numpy.subtract, other, *args, **kwargs)
 
     def multiply(self, other, *args, **kwargs):
+        kwargs['impl'] = self.algebra_method
         if hasattr(other, '__container_priority__') and \
            self.__class__.__container_priority__ < other.__class__.__container_priority__:
             return other.multiply(self, *args, **kwargs)
         return self.pixel_wise_binary(numpy.multiply, other, *args, **kwargs)
     
     def divide(self, other, *args, **kwargs):
+        kwargs['impl'] = self.algebra_method
         if hasattr(other, '__container_priority__') and \
            self.__class__.__container_priority__ < other.__class__.__container_priority__:
             return other.divide(self, *args, **kwargs)
         return self.pixel_wise_binary(numpy.divide, other, *args, **kwargs)
     
     def power(self, other, *args, **kwargs):
+        kwargs['impl'] = self.algebra_method
         return self.pixel_wise_binary(numpy.power, other, *args, **kwargs)
     
     def maximum(self, x2, *args, **kwargs):
+        kwargs['impl'] = 'numpy'
         return self.pixel_wise_binary(numpy.maximum, x2, *args, **kwargs)
     
     def minimum(self,x2, out=None, *args, **kwargs):
+        kwargs['impl'] = 'numpy'
         return self.pixel_wise_binary(numpy.minimum, x2=x2, out=out, *args, **kwargs)
 
     
@@ -1322,6 +1371,201 @@ class PixelByPixelDataProcessor(DataProcessor):
                     dimension_labels=dsi.dimension_labels )
         return y
     
+@jit(nopython=True)
+def numba_algebra(x,y,operation,out):
+    N = x.size
+    ndims = len(x.shape)
+    if operation == 0:
+        if ndims == 1:
+            for i in prange(N):
+                out[i] = x[i] + y[i]
+        elif ndims == 2:
+            for i in prange(x.shape[0]):
+                for j in range(x.shape[1]):
+                    out[i][j] = x[i][j] + y[i][j]
+        elif ndims == 3:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        out[i][j][k] = x[i][j][k] + y[i][j][k]
+        elif ndims == 4:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        for c in range(x.shape[3]):
+                            out[i][j][k][c] = x[i][j][k][c] + y[i][j][k][c]
+        
+    elif operation == 1:
+        if ndims == 1:
+            for i in prange(N):
+                out[i] = x[i] - y[i]
+        elif ndims == 2:
+            for i in prange(x.shape[0]):
+                for j in range(x.shape[1]):
+                    out[i][j] = x[i][j] - y[i][j]
+        elif ndims == 3:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        out[i][j][k] = x[i][j][k] - y[i][j][k]
+        elif ndims == 4:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        for c in range(x.shape[3]):
+                            out[i][j][k][c] = x[i][j][k][c] - y[i][j][k][c]
+       
+    elif operation == 2:
+        if ndims == 1:
+            for i in prange(N):
+                out[i] = x[i] * y[i]
+        elif ndims == 2:
+            for i in prange(x.shape[0]):
+                for j in range(x.shape[1]):
+                    out[i][j] = x[i][j] * y[i][j]
+        elif ndims == 3:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        out[i][j][k] = x[i][j][k] * y[i][j][k]
+        elif ndims == 4:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        for c in range(x.shape[3]):
+                            out[i][j][k][c] = x[i][j][k][c] * y[i][j][k][c]
+    elif operation == 3:
+        if ndims == 1:
+            for i in prange(N):
+                if y[i] != 0:
+                    out[i] = x[i] / y[i]
+                else:
+                    out[i] = 0
+        elif ndims == 2:
+            for i in prange(x.shape[0]):
+                for j in range(x.shape[1]):
+                    if  y[i][j] != 0:
+                        out[i][j] = x[i][j] /  y[i][j]
+                    else:
+                        out[i][j] = 0
+        elif ndims == 3:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        out[i][j][k] = x[i][j][k] / y[i][j][k] 
+                        if y[i][j][k] != 0:
+                            out[i][j][k] = x[i][j][k] / y[i][j][k]
+                        else:
+                            out[i][j][k] = 0
+        elif ndims == 4:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        for c in range(x.shape[3]):
+                            out[i][j][k][c] = x[i][j][k][c] / y[i][j][k][c]
+                            if y[i][j][k][c] != 0:
+                                out[i][j][k][c] = x[i][j][k][c] / y[i][j][k][c]
+                            else:
+                                out[i][j][k][c] = 0
+        
+    
+
+@jit
+def numba_algebra_scalar(x,y,operation,out):
+    N = x.size
+    ndims = len(x.shape)
+    if operation == 0:
+        if ndims == 1:
+            for i in prange(N):
+                out[i] = x[i] + y
+        elif ndims == 2:
+            for i in prange(x.shape[0]):
+                for j in range(x.shape[1]):
+                    out[i][j] = x[i][j] + y
+        elif ndims == 3:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        out[i][j][k] = x[i][j][k] + y
+        elif ndims == 4:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        for c in range(x.shape[2]):
+                            out[i][j][k][c] = x[i][j][k][c] + y
+        
+    elif operation == 1:
+        if ndims == 1:
+            for i in prange(N):
+                out[i] = x[i] - y
+        elif ndims == 2:
+            for i in prange(x.shape[0]):
+                for j in range(x.shape[1]):
+                    out[i][j] = x[i][j] - y
+        elif ndims == 3:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        out[i][j][k] = x[i][j][k] - y
+        elif ndims == 4:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        for c in range(x.shape[3]):
+                            out[i][j][k][c] = x[i][j][k][c] - y
+       
+    elif operation == 2:
+        if ndims == 1:
+            for i in prange(N):
+                out[i] = x[i] * y
+        elif ndims == 2:
+            for i in prange(x.shape[0]):
+                for j in range(x.shape[1]):
+                    out[i][j] = x[i][j] * y
+        elif ndims == 3:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        out[i][j][k] = x[i][j][k] * y
+        elif ndims == 4:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        for c in range(x.shape[3]):
+                            out[i][j][k][c] = x[i][j][k][c] * y
+    elif operation == 3:
+        if ndims == 1:
+            for i in prange(N):
+                if y[i] != 0:
+                    out[i] = x[i] / y
+                else:
+                    out[i] = 0
+        elif ndims == 2:
+            for i in prange(x.shape[0]):
+                for j in range(x.shape[1]):
+                    if  y != 0:
+                        out[i][j] = x[i][j] /  y
+                    else:
+                        out[i][j] = 0
+        elif ndims == 3:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        out[i][j][k] = x[i][j][k] / y[i][j][k] 
+                        if y != 0:
+                            out[i][j][k] = x[i][j][k] / y
+                        else:
+                            out[i][j][k] = 0
+        elif ndims == 4:
+            for i in prange(x.shape[0]):
+                for j in prange(x.shape[1]):
+                    for k in range(x.shape[2]):
+                        for c in range(x.shape[3]):
+                            if y!= 0:
+                                out[i][j][k][c] = x[i][j][k][c] / y
+                            else:
+                                out[i][j][k][c] = 0
+
 
         
         
@@ -1484,4 +1728,4 @@ if __name__ == '__main__':
 #        self.assertTrue(False)
 #    except ValueError as ve:
 #        self.assertTrue(True)
-    
+

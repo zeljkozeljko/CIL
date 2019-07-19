@@ -36,6 +36,7 @@ requirements:
     - matplotlib
     - h5py
     - pillow
+    - numba
   
 about:
   home: http://www.ccpi.ac.uk
