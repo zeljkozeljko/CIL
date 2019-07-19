@@ -21,6 +21,23 @@
 
 """ 
 
+Initial version of Gradient Operator based on Sobel Filter.
+
+I implemented the same example as the PDHG denoising TV from CIL-Demos
+https://github.com/vais-ral/CIL-Demos/blob/master/Denoising/2D/PDHG_TV_Denoising.py
+
+Notes: 
+1) Sobel based gradient needs scaling to match the finite difference values. This is achieved by dividing
+   the sobel kernel by 4. This is because in the calculation per pixel it will add 2 times the neighbouring
+   rows (cols) plus it will weight the central row (column) with 2. 
+2) the adjoint operator is not entirely clear to me. However I think by changing the sign of the sobel kernel
+   one achieves the same of the backward finite difference. 
+3) Notably the adjoint with sobel filter seems to be richer in structure wrt the finite difference
+4) The denoised image shows a pattern of alternating high/low values and not large patches of constant values typical
+   of TV regularisation. This may be due to implementation errors in the adjoint.
+
+
+
 Total Variation Denoising using PDHG algorithm:
 
 
@@ -84,20 +101,37 @@ class GradientSobel(LinearOperator):
                 
         self.bnd_cond = bnd_cond
 
+        if kwargs.get('method', 'sobel') == 'sobel':
+            #sobel kernels
+            kernel_x = numpy.asarray([[-1.,0.,1.],[-2.,0.,2.],[-1.,0.,1.]])
+            kernel_y = numpy.asarray([[-1.,-2.,-1.],[0.,0.,0.],[1.,2.,1.]])
+            self.kernel_x = kernel_x / 4.
+            self.kernel_y = kernel_y / 4.
+            self.kernel_bx = - kernel_x / 4.
+            self.kernel_by = - kernel_y / 4.
+        else:
+            # edo kernels
+            # least squares line in 3 points
+            kernel_x = numpy.asarray([[0.,0.,0.],[-1.,0.,1.],[0.,0.,0]])
+            kernel_y = numpy.asarray([[-0.,-1.,-0.],[0.,0.,0.],[0.,1.,0.]])
+            
+            self.kernel_x = kernel_x / 2.
+            self.kernel_y = kernel_y / 2.
+            self.kernel_bx = - kernel_x / 2.
+            self.kernel_by = - kernel_y / 2.
+
     def sobelX(self, x, forward=True):
         '''return the gradient from sobel filter on X as numpy array'''
         if forward:
-            return cv2.Sobel(x.as_array(),cv2.CV_64F,1, 0, ksize=3)
+            return cv2.filter2D(x.as_array(), -1, self.kernel_x)#, borderType=cv2.BORDER_REPLICATE)
         else:
-            kernel = numpy.asarray([[1,0,-1],[2,0,-2],[1,0,-1]])
-            return -1 * cv2.filter2D(x.as_array(), -1, kernel)#, borderType=cv2.BORDER_REPLICATE)
+            return cv2.filter2D(x.as_array(), -1, self.kernel_bx)#, borderType=cv2.BORDER_REPLICATE)
     def sobelY(self, x, forward=True):
         '''return the gradient from sobel filter on Y as numpy array'''
         if forward:
-            return cv2.Sobel(x.as_array(),cv2.CV_64F,0, 1,ksize=3)
+            return cv2.filter2D(x.as_array(), -1, self.kernel_y)
         else:
-            kernel = numpy.asarray([[-1,-2,-1],[0,0,0],[1,2,1]])
-            return -1 * cv2.filter2D(x.as_array(), -1, kernel)#, borderType=cv2.BORDER_REPLICATE)
+            return cv2.filter2D(x.as_array(), -1, self.kernel_by)#, borderType=cv2.BORDER_REPLICATE)
     def direct(self, x, out=None):
         
                 
@@ -157,6 +191,7 @@ class GradientSobel(LinearOperator):
                     out += tmp
                 else:
                     raise ValueError('expecting direction in 0,1, got', i)
+            out /= 2.
         else:            
             tmp = self.gm_domain.allocate()
             for i in range(x.shape[0]):
@@ -175,7 +210,7 @@ class GradientSobel(LinearOperator):
                     tmp += y
                 else:
                     raise ValueError('expecting direction in 0,1, got', i)
-            return tmp
+            return tmp /2
             
     
     def domain_geometry(self):
@@ -214,7 +249,7 @@ print ("method ", method)
 
 
 loader = TestData(data_dir=os.path.join(sys.prefix, 'share','ccpi'))
-data = loader.load(TestData.SHAPES)
+data = loader.load(TestData.CAMERA)
 ig = data.geometry
 ag = ig
 
@@ -239,7 +274,7 @@ noisy_data.fill(n1)
 
 if True:
     fdiff = Gradient(ig)
-    sobel = GradientSobel(ig)
+    sobel = GradientSobel(ig, method='sobel')
 
     g_fdiff = fdiff.direct(noisy_data)
     g_sobel = sobel.direct(noisy_data)
@@ -317,48 +352,73 @@ if method == '0':
     
 else:
     
-    #operator = Gradient(ig)
-    operator = GradientSobel(ig)
-    f =  (1e-1 * alpha) * MixedL21Norm()
+    operator_fd = Gradient(ig)
+    operator_so = GradientSobel(ig, method='sobel')
+    f_fd =  alpha * MixedL21Norm()
+    f_so =  ( 1. * alpha) * MixedL21Norm()
     g = f2
         
 
+normK = LinearOperator.PowerMethod(operator_fd, 10)[0]
 
-
-# Compute operator Norm
-normK = operator.norm()
-
+print ("operator.norm()", normK )
+#normK = normK[0]
 # Primal & dual stepsizes
 sigma = 1
 tau = 1/(sigma*normK**2)
 
 
+
+def callback(i, objective, solution):
+    print (i, objective, solution.squared_norm())
 # Setup and run the PDHG algorithm
-pdhg = PDHG(f=f,g=g,operator=operator, tau=tau, sigma=sigma)
+pdhg = PDHG(f=f_fd,g=g,operator=operator_fd, tau=tau, sigma=sigma)
 pdhg.max_iteration = 2000
 pdhg.update_objective_interval = 10
-pdhg.run(20)
+pdhg.run(100, verbose=True, callback=None)
+
+normK = LinearOperator.PowerMethod(operator_so, 10)[0]
+print ("operator.norm()", normK )
+#normK = normK[0]
+# Primal & dual stepsizes
+sigma = 1
+tau = 1/(sigma*normK**2)
+pdhg_so = PDHG(f=f_so,g=g,operator=operator_so, tau=tau, sigma=sigma)
+pdhg_so.max_iteration = 2000
+pdhg_so.update_objective_interval = 10
+pdhg_so.run(100, verbose=True, callback=None)
 
 # Show results
 plt.figure(figsize=(20,5))
-plt.subplot(1,4,1)
+plt.subplot(2,3,1)
 plt.imshow(data.subset(channel=0).as_array())
 plt.title('Ground Truth')
 plt.colorbar()
 plt.clim([0,1])
-plt.subplot(1,4,2)
+plt.subplot(2,3,4)
 plt.imshow(noisy_data.subset(channel=0).as_array())
 plt.title('Noisy Data')
 plt.colorbar()
 plt.clim([0,1])
-plt.subplot(1,4,3)
+plt.subplot(2,3,2)
 plt.imshow(pdhg.get_output().subset(channel=0).as_array())
-plt.title('TV Reconstruction')
+plt.title('TV Reconstruction FD')
 plt.colorbar()
 plt.clim([0,1])
-plt.subplot(1,4,4)
+plt.subplot(2,3,5)
+plt.imshow(pdhg_so.get_output().subset(channel=0).as_array())
+plt.title('TV Reconstruction Sobel')
+plt.colorbar()
+plt.clim([0,1])
+plt.subplot(2,3,6)
+plt.imshow((pdhg.get_output()-pdhg_so.get_output()).subset(channel=0).as_array())
+plt.title('diff TV Reconstructions FD-Sobel')
+plt.colorbar()
+plt.subplot(2,3,3)
 plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), data.as_array()[int(ig.shape[0]/2),:], label = 'GTruth')
-plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), pdhg.get_output().as_array()[int(ig.shape[0]/2),:], label = 'TV reconstruction')
+plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), noisy_data.as_array()[int(ig.shape[0]/2),:], label = 'Noisy Data')
+plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), pdhg_so.get_output().as_array()[int(ig.shape[0]/2),:], label = 'TV reconstruction Sobel')
+plt.plot(np.linspace(0,ig.shape[1],ig.shape[1]), pdhg.get_output().as_array()[int(ig.shape[0]/2),:], label = 'TV reconstruction FD')
 plt.legend()
 plt.title('Middle Line Profiles')
 plt.show()
