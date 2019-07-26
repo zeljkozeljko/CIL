@@ -502,8 +502,8 @@ class TestDataContainer(unittest.TestCase):
         vol1 = vol + 1
         self.assertEqual(vol1.sum(), 2*3*4)
         vol1 = (vol + 2) ** 2
-        self.assertNumpyArrayEqual(vol1.as_array(), numpy.ones(vol.shape) * 4)
-
+        #self.assertNumpyArrayEqual(vol1.as_array(), numpy.ones(vol.shape) * 4)
+        numpy.testing.assert_array_equal(vol1.as_array(), numpy.ones(vol.shape)*4)
         self.assertEqual(vol.number_of_dimensions, 3)
         
         ig2 = ImageGeometry (voxel_num_x=2,voxel_num_y=3,voxel_num_z=4, 
@@ -578,8 +578,8 @@ class TestDataContainer(unittest.TestCase):
         self.assertEqual(0,sino.as_array()[0][0][0][0])
         self.assertEqual(0,sino.as_array()[shape[0]-1][shape[1]-1][shape[2]-1][shape[3]-1])
         
-        sino = ageometry.allocate(value=1)
-        self.assertEqual(1,sino.as_array()[0][0][0][0])
+        sino = ageometry.allocate(value=1.)
+        self.assertEqual(1.,sino.as_array()[0][0][0][0])
         self.assertEqual(1,sino.as_array()[shape[0]-1][shape[1]-1][shape[2]-1][shape[3]-1])
         print (sino.dimension_labels, sino.shape, ageometry)
         

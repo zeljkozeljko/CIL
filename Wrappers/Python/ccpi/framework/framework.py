@@ -337,7 +337,7 @@ class AcquisitionGeometry(object):
         repres += "distance center-detector: {0}\n".format(self.dist_source_center)
         repres += "number of channels: {0}\n".format(self.channels)
         return repres
-    def allocate(self, value=0, dimension_labels=None):
+    def allocate(self, value=0, dimension_labels=None, **kwargs):
         '''allocates an AcquisitionData according to the size expressed in the instance'''
         if dimension_labels is None:
             out = AcquisitionData(geometry=self, dimension_labels=self.dimension_labels)
@@ -346,14 +346,16 @@ class AcquisitionGeometry(object):
         if isinstance(value, Number):
             print ("value", value)
             if value != 0:
+                print ("value", value)
                 out += value
+                print ("allocate", out.as_array().flat[0])
         else:
-            if value == AcquisitionData.RANDOM:
+            if value == AcquisitionGeometry.RANDOM:
                 seed = kwargs.get('seed', None)
                 if seed is not None:
                     numpy.random.seed(seed) 
                 out.fill(numpy.random.random_sample(self.shape))
-            elif value == AcquisitionData.RANDOM_INT:
+            elif value == AcquisitionGeometry.RANDOM_INT:
                 seed = kwargs.get('seed', None)
                 if seed is not None:
                     numpy.random.seed(seed)
@@ -378,7 +380,7 @@ class DataContainer(object):
         self.number_of_dimensions = len (self.shape)
         self.dimension_labels = {}
         self.geometry = None # Only relevant for AcquisitionData and ImageData
-        self.algebra_method = kwargs.get('algebra', 'numpy')
+        self.algebra_method = kwargs.get('algebra', 'numba')
         
         if dimension_labels is not None and \
            len (dimension_labels) == self.number_of_dimensions:
@@ -705,7 +707,7 @@ class DataContainer(object):
         out = kwargs.get('out', None)
         impl = kwargs.pop('impl', 'numpy')
         if len(self.shape)>3:
-            impl = numpy
+            impl = 'numpy'
         
         if out is None:
             if isinstance(x2, (Number, numpy.int, numpy.int8, numpy.int16, numpy.int32, numpy.int64,\
@@ -800,7 +802,7 @@ class DataContainer(object):
         return self.pixel_wise_binary(numpy.divide, other, *args, **kwargs)
     
     def power(self, other, *args, **kwargs):
-        kwargs['impl'] = self.algebra_method
+        kwargs['impl'] = 'numpy'
         return self.pixel_wise_binary(numpy.power, other, *args, **kwargs)
     
     def maximum(self, x2, *args, **kwargs):
