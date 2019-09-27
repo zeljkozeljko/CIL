@@ -23,6 +23,9 @@
 
 import time, functools
 from numbers import Integral
+import multiprocessing
+import matplotlib.pyplot as plt
+from matplotlib import gridspec
 
 class Algorithm(object):
     '''Base class for iterative algorithms
@@ -60,6 +63,15 @@ class Algorithm(object):
         self.timing = []
         self._iteration = []
         self.update_objective_interval = kwargs.get('update_objective_interval', 1)
+        
+        self.plotter = CurrentSolutionPlotter()
+        # parent, child Pipe
+        self.algorithm_pipe, self.plotter_pipe = multiprocessing.Pipe()
+        # attach the child pipe to the process 
+        self.plot_process = multiprocessing.Process(target=self.plotter, 
+              args=(self.plotter_pipe,))
+        # start the process
+        self.plot_process.start()
     def set_up(self, *args, **kwargs):
         '''Set up the algorithm'''
         raise NotImplementedError()
@@ -155,7 +167,7 @@ class Algorithm(object):
                 raise ValueError('Update objective interval must be an integer >= 1')
         else:
             raise ValueError('Update objective interval must be an integer >= 1')
-    def run(self, iterations, verbose=True, callback=None):
+    def run(self, iterations, verbose=True, visual=True, callback=None):
         '''run n iterations and update the user with the callback if specified'''
         if self.should_stop():
             print ("Stop cryterion has been reached.")
@@ -166,6 +178,24 @@ class Algorithm(object):
             if verbose:
                 print(self.verbose_output())
         for _ in self:
+            if visual:
+                # prepare the data to be passed to the plotter
+                print("prepare the data to be passed")
+                data = {}
+                if len(self.x.shape) > 2:
+                    # arbitrarily slice the solution to 2D
+                    slices = [int(s / 2) for s in self.x.shape ]
+                    slices = slices[2:]
+                    data['slice'] = self.x.as_array()[slices[1]][slices[0]]
+                else:
+                    data['slice'] = self.x.as_array()
+                data['loss'] = self.loss
+                data['iteration'] = self.iteration
+                data['loss_iteration'] = self._iteration
+                # send the data to the plotter
+                print (data)
+                self.algorithm_pipe.send(data)        
+
             if (self.iteration) % self.update_objective_interval == 0: 
                 if verbose:
                     print (self.verbose_output())
@@ -224,3 +254,62 @@ class Algorithm(object):
                                                       '[s]',
                                                       '')
         return out
+
+
+
+
+class CurrentSolutionPlotter(object):
+    '''from https://matplotlib.org/3.1.0/gallery/misc/multiprocess_sgskip.html'''
+    
+    def __init__(self):
+        self.x = None
+        
+    def __call__(self, pipe):
+        '''configure on call'''
+        print ("Initialise CurrentSolutionPlotter")
+        self.pipe = pipe
+        self.fig , self.ax = plt.subplots()
+        #self.fig = plt.figure()
+        #self.gs = gridspec.GridSpec(1, 2, figure=self.fig, width_ratios=(1,1,))
+        ## add axes to plot slice and convergence
+        #self.ax_img = self.fig.add_subplot(self.gs[0, 0])
+        #self.ax_conv = self.fig.add_subplot(self.gs[0, 1])
+
+        timer = self.fig.canvas.new_timer(interval=1000)
+        timer.add_callback(self.call_back)
+        timer.start()
+        print ('Done')
+        plt.show()
+
+    def terminate(self):
+        '''terminate the process'''
+        plt.close('all')
+    
+    def call_back(self):
+        '''callback to plot to the canvas'''
+        while self.pipe.poll():
+            command = self.pipe.recv()
+            print ("command received" , command)
+            if command is None:
+                self.terminate()
+                return False
+            else:
+                # current solution
+                x = command['slice']
+                iteration = command['iteration']
+                loss = command['loss']
+                loss_iterations = command['loss_iterations']
+                
+                self.ax.imshow(x)
+                self.fig.colorbar()
+                #self.ax_img.imshow(x)
+                #self.ax_img.set_title('iter={}, Last Obj {}'.format(iteration,
+                #                       loss[-1]))
+                #self.ax_img.colorbar()
+                #self.ax_conv.plot(loss_iterations, loss, 'r-')
+                #self.ax_conv.set_title('Objective')
+
+                #self.fig.colorbar()
+                self.fig.canvas.draw()
+        return True
+
