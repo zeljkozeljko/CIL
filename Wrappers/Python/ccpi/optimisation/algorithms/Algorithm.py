@@ -21,7 +21,7 @@
 #=========================================================================
 
 
-import time, functools
+import time, functools, warnings
 from numbers import Integral
 import multiprocessing
 import matplotlib.pyplot as plt
@@ -70,8 +70,7 @@ class Algorithm(object):
         # attach the child pipe to the process 
         self.plot_process = multiprocessing.Process(target=self.plotter, 
               args=(self.plotter_pipe,))
-        # start the process
-        self.plot_process.start()
+        
     def set_up(self, *args, **kwargs):
         '''Set up the algorithm'''
         raise NotImplementedError()
@@ -87,7 +86,10 @@ class Algorithm(object):
     
     def max_iteration_stop_cryterion(self):
         '''default stop cryterion for iterative algorithm: max_iteration reached'''
-        return self.iteration >= self.max_iteration
+        should_stop = self.iteration >= self.max_iteration
+        if should_stop:
+            self.plot_process.terminate()
+        return should_stop
     def __iter__(self):
         '''Algorithm is an iterable'''
         return self
@@ -167,8 +169,12 @@ class Algorithm(object):
                 raise ValueError('Update objective interval must be an integer >= 1')
         else:
             raise ValueError('Update objective interval must be an integer >= 1')
-    def run(self, iterations, verbose=True, visual=True, callback=None):
+    def run(self, iterations, verbose=True, visual=False, callback=None):
         '''run n iterations and update the user with the callback if specified'''
+        # start the plot process
+        if visual and not self.plot_process.is_alive():
+            print ("starting process")
+            self.plot_process.start()
         if self.should_stop():
             print ("Stop cryterion has been reached.")
         i = 0
@@ -178,29 +184,29 @@ class Algorithm(object):
             if verbose:
                 print(self.verbose_output())
         for _ in self:
-            if visual:
-                # prepare the data to be passed to the plotter
-                print("prepare the data to be passed")
-                data = {}
-                if len(self.x.shape) > 2:
-                    # arbitrarily slice the solution to 2D
-                    slices = [int(s / 2) for s in self.x.shape ]
-                    slices = slices[2:]
-                    data['slice'] = self.x.as_array()[slices[1]][slices[0]]
-                else:
-                    data['slice'] = self.x.as_array()
-                data['loss'] = self.loss
-                data['iteration'] = self.iteration
-                data['loss_iteration'] = self._iteration
-                # send the data to the plotter
-                print (data)
-                self.algorithm_pipe.send(data)        
-
             if (self.iteration) % self.update_objective_interval == 0: 
                 if verbose:
                     print (self.verbose_output())
                 if callback is not None:
                     callback(self.iteration, self.get_last_objective(), self.x)
+                if visual:
+                    # prepare the data to be passed to the plotter
+                    # print("prepare the data to be passed")
+                    data = {}
+                    if len(self.x.shape) > 2:
+                        # arbitrarily slice the solution to 2D
+                        slices = [int(s / 2) for s in self.x.shape ]
+                        slices = slices[2:]
+                        data['slice'] = self.x.as_array()[slices[1]][slices[0]]
+                    else:
+                        data['slice'] = self.x.as_array()
+                    data['loss'] = self.loss
+                    data['iteration'] = self.iteration
+                    data['loss_iteration'] = self._iteration
+                    # send the data to the plotter
+                    # print (data)
+                    self.algorithm_pipe.send(data)        
+
             i += 1
             if i == iterations:
                 if self.iteration != self._iteration[-1]:
@@ -208,6 +214,8 @@ class Algorithm(object):
                     if verbose:
                         print (self.verbose_output())
                 break
+        if self.plot_process.is_alive():
+            self.plot_process.terminate()
 
     def verbose_output(self):
         '''Creates a nice tabulated output'''
@@ -255,6 +263,11 @@ class Algorithm(object):
                                                       '')
         return out
 
+    def __exit__(self):
+        '''call on exit, stop plot process'''
+
+        if self.plot_process.is_alive():
+            self.plot_process.terminate()
 
 
 
@@ -263,6 +276,7 @@ class CurrentSolutionPlotter(object):
     
     def __init__(self):
         self.x = None
+        self.last_call_time = time.time()
         
     def __call__(self, pipe):
         '''configure on call'''
@@ -288,23 +302,34 @@ class CurrentSolutionPlotter(object):
     def call_back(self):
         '''callback to plot to the canvas'''
         while self.pipe.poll():
-            command = self.pipe.recv()
-            print ("command received" , command)
+            try:
+                command = self.pipe.recv()
+            except BrokenPipeError as bpe:
+                self.terminate()
+                return False
+            current_time = time.time()
+            if current_time - self.last_call_time < 1.000:
+                warnings.warn ("Data arriving too quickly to process {}s".format(current_time - self.last_call_time))
+                return True
+            else:
+                # print ("processing data")
+                self.last_call_time = current_time
             if command is None:
                 self.terminate()
                 return False
             else:
                 # current solution
+                print ("command received")
                 x = command['slice']
                 iteration = command['iteration']
                 loss = command['loss']
-                loss_iterations = command['loss_iterations']
+                loss_iterations = command['loss_iteration']
                 
                 self.ax.imshow(x)
-                self.fig.colorbar()
+                #self.fig.colorbar(x)
                 #self.ax_img.imshow(x)
-                #self.ax_img.set_title('iter={}, Last Obj {}'.format(iteration,
-                #                       loss[-1]))
+                self.ax.set_title('iter={}\nLast Obj {}'.format(iteration,
+                                       loss[-1]))
                 #self.ax_img.colorbar()
                 #self.ax_conv.plot(loss_iterations, loss, 'r-')
                 #self.ax_conv.set_title('Objective')
