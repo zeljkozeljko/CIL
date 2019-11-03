@@ -17,6 +17,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 import numpy
 from ccpi.optimisation.functions import Function
 from ccpi.optimisation.functions.ScaledFunction import ScaledFunction 
@@ -40,7 +45,7 @@ class KullbackLeibler(Function):
         super(KullbackLeibler, self).__init__()
         
         self.b = data    
-        self.bnoise = 0
+        self.bnoise = data * 0.
         
                                                     
     def __call__(self, x):
@@ -235,4 +240,4 @@ if __name__ == '__main__':
         
 
     
-        
+    

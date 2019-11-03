@@ -17,6 +17,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from numbers import Number
 import numpy
 import warnings
@@ -46,7 +51,7 @@ class ScaledFunction(object):
         self.function = function
         
         if self.function.L is not None:        
-            self.L = self.scalar * self.function.L         
+            self.L = abs(self.scalar) * self.function.L         
 
     def __call__(self,x, out=None):
         '''Evaluates the function at x '''

@@ -17,6 +17,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from ccpi.optimisation.algorithms import Algorithm
 
 
@@ -56,20 +61,31 @@ class PDHG(Algorithm):
         SIAM J. Imaging Sci. 3, 1015–1046.
     '''
 
-    def __init__(self, **kwargs):
-        super(PDHG, self).__init__(max_iteration=kwargs.get('max_iteration',0))
-        f        = kwargs.get('f', None)
-        operator = kwargs.get('operator', None)
-        g        = kwargs.get('g', None)
-        tau      = kwargs.get('tau', None)
-        sigma    = kwargs.get('sigma', 1.)
+    def __init__(self, f=None, g=None, operator=None, tau=None, sigma=1.,**kwargs):
+        '''PDHG algorithm creator
+
+        :param operator : Linear Operator = K
+        :param f : Convex function with "simple" proximal of its conjugate. 
+        :param g : Convex function with "simple" proximal 
+        :param sigma : Step size parameter for Primal problem
+        :param tau : Step size parameter for Dual problem'''
+        super(PDHG, self).__init__(**kwargs)
+        
 
         if f is not None and operator is not None and g is not None:
-            print(self.__class__.__name__ , "set_up called from creator")
             self.set_up(f=f, g=g, operator=operator, tau=tau, sigma=sigma)
 
     def set_up(self, f, g, operator, tau=None, sigma=1.):
+        '''initialisation of the algorithm
 
+        :param operator : Linear Operator = K
+        :param f : Convex function with "simple" proximal of its conjugate. 
+        :param g : Convex function with "simple" proximal 
+        :param sigma : Step size parameter for Primal problem
+        :param tau : Step size parameter for Dual problem'''
+
+        print("{} setting up".format(self.__class__.__name__, ))
+        
         # can't happen with default sigma
         if sigma is None and tau is None:
             raise ValueError('Need sigma*tau||K||^2<1')
@@ -103,9 +119,14 @@ class PDHG(Algorithm):
         self.theta = 1
         self.update_objective()
         self.configured = True
+        print("{} configured".format(self.__class__.__name__, ))
+
 
     def update(self):
-        
+        # save previous iteration
+        self.x_old.fill(self.x)
+        self.y_old.fill(self.y)
+
         # Gradient ascent for the dual variable
         self.operator.direct(self.xbar, out=self.y_tmp)
         self.y_tmp *= self.sigma
@@ -127,9 +148,7 @@ class PDHG(Algorithm):
         self.xbar += self.x
 
         
-        self.x_old.fill(self.x)
-        self.y_old.fill(self.y)
-
+        
     def update_objective(self):
 
         p1 = self.f(self.operator.direct(self.x)) + self.g(self.x)

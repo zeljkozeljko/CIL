@@ -16,6 +16,11 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+from __future__ import unicode_literals
+
 from ccpi.optimisation.functions import Function
 import numpy
 
@@ -44,8 +49,8 @@ class IndicatorBox(Function):
         
         '''Evaluates IndicatorBox at x'''
                 
-        if (numpy.all(x.array>=self.lower) and 
-            numpy.all(x.array <= self.upper) ):
+        if (numpy.all(x.as_array() >= self.lower) and 
+            numpy.all(x.as_array() <= self.upper) ):
             val = 0
         else:
             val = numpy.inf
