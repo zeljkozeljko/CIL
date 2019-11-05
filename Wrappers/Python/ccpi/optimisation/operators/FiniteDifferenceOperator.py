@@ -191,6 +191,8 @@ class FiniteDiff(LinearOperator):
         if outnone:
             ret.fill(outa)
             return ret
+        else:
+            out.fill(outa)
 
                     
     def adjoint(self, x, out=None):

@@ -41,7 +41,7 @@ class FunctionOperatorComposition(Function):
         self.operator = operator
         try:
             self.L = function.L * operator.norm()**2 
-        except Error as er:
+        except:
             self.L = None
             warnings.warn("Lipschitz constant was not calculated")
         
