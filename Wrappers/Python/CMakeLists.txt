@@ -3,7 +3,7 @@ option (BUILD_PYTHON_WRAPPER "Build Python Wrapper" ON)
 if (BUILD_PYTHON_WRAPPER)
   find_package(PythonInterp REQUIRED)
   
-  set(PYTHON_DEST_DIR "" CACHE PATH "Directory of the Python wrappers")
+  #set(PYTHON_DEST_DIR "" CACHE PATH "Directory of the Python wrappers")
   if (PYTHON_DEST_DIR)
     set(PYTHON_DEST "${PYTHON_DEST_DIR}")
   else() 
@@ -39,9 +39,9 @@ if (BUILD_PYTHON_WRAPPER)
       set (DEPS       "${CMAKE_BINARY_DIR}/")
       set(OUTPUT      "${CMAKE_CURRENT_BINARY_DIR}/build/timestamp")
 
-      #configure_file(${SETUP_PY_IN} ${SETUP_PY})
-
-      
+      # add to add_custom_command DEPENDS the list of python files of the project.
+      # as a hack I remove ${OUTPUT}. This should trigger the new build.
+      file(REMOVE ${OUTPUT})
       if (CONDA_BUILD)
         add_custom_command(OUTPUT ${OUTPUT}
                         #COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}
@@ -67,10 +67,11 @@ if (BUILD_PYTHON_WRAPPER)
         else()
           add_custom_command(OUTPUT ${OUTPUT}
                         COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}
-                        COMMAND ${CMAKE_COMMAND} -E env PREFIX=${CMAKE_SOURCE_DIR}/src/
+                        COMMAND ${CMAKE_COMMAND} -E env CIL_VERSION=20.01
+                                                        PREFIX=${CMAKE_SOURCE_DIR}/src/
                                                         LIBRARY_INC=${CMAKE_SOURCE_DIR}/src/include
                                                         LIBRARY_LIB=${CMAKE_BINARY_DIR}/
-                                                        ${PYTHON_EXECUTABLE} ${SETUP_PY} build_py
+                                                        ${PYTHON_EXECUTABLE} ${SETUP_PY} build_py --build-lib=${CMAKE_CURRENT_BINARY_DIR}/build/lib
                         COMMAND ${CMAKE_COMMAND} -E touch ${OUTPUT}
                         DEPENDS cilacc
                         )
