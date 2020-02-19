@@ -72,7 +72,7 @@ class FunctionOperatorComposition(Function):
             warnings.warn("{}. Lipschitz constant was not calculated".format(ae))
         except:
             self.L = None
-            warnings.warn("Unexpected Error. Lipschitz constant was not calculated"
+            warnings.warn("Unexpected Error. Lipschitz constant was not calculated")
         
     def __call__(self, x):
         
