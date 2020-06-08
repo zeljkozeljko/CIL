@@ -33,6 +33,7 @@ from ccpi.optimisation.operators import SumOperator, Gradient,\
 from ccpi.framework import TestData
 import os
 from packaging import version
+import numpy as np
 
 def dt(steps):
     return steps[-1] - steps[-2]
@@ -311,7 +312,69 @@ class TestOperator(CCPiTestClass):
             print ("norm {}", format(n))
 
     
-
+    def test_SparseFiniteDiff(self):
+        np.random.seed(1)
+        M, N= 2, 3
+        ig = ImageGeometry(M, N)
+        arr = ig.allocate('random_int')
+        
+        for i in [0,1]:
+        
+            # Neumann
+            sFD_neum = SparseFiniteDiff(ig, direction=i, bnd_cond='Neumann')
+            G_neum = FiniteDiff(ig, direction=i, bnd_cond='Neumann')
+            
+            # Periodic
+            sFD_per = SparseFiniteDiff(ig, direction=i, bnd_cond='Periodic')
+            G_per = FiniteDiff(ig, direction=i, bnd_cond='Periodic')    
+        
+            u_neum_direct = G_neum.direct(arr)
+            u_neum_sp_direct = sFD_neum.direct(arr)
+            np.testing.assert_array_almost_equal(u_neum_direct.as_array(), u_neum_sp_direct.as_array(), decimal=4)
+            
+            u_neum_adjoint = G_neum.adjoint(arr)
+            u_neum_sp_adjoint = sFD_neum.adjoint(arr)
+            np.testing.assert_array_almost_equal(u_neum_adjoint.as_array(), u_neum_sp_adjoint.as_array(), decimal=4)    
+            
+            u_per_direct = G_neum.direct(arr)
+            u_per_sp_direct = sFD_neum.direct(arr)  
+            np.testing.assert_array_almost_equal(u_per_direct.as_array(), u_per_sp_direct.as_array(), decimal=4)
+            
+            u_per_adjoint = G_per.adjoint(arr)
+            u_per_sp_adjoint = sFD_per.adjoint(arr)
+            np.testing.assert_array_almost_equal(u_per_adjoint.as_array(), u_per_sp_adjoint.as_array(), decimal=4)      
+        
+        # 3D
+        M, N, K = 2, 3, 4
+        ig3D = ImageGeometry(M, N, K)
+        arr3D = ig3D.allocate('random')
+        
+        for i in [0,1,2]:
+        
+            # Neumann
+            sFD_neum3D = SparseFiniteDiff(ig3D, direction=i, bnd_cond='Neumann')
+            G_neum3D = FiniteDiff(ig3D, direction=i, bnd_cond='Neumann')
+            
+            # Periodic
+            sFD_per3D = SparseFiniteDiff(ig3D, direction=i, bnd_cond='Periodic')
+            G_per3D = FiniteDiff(ig3D, direction=i, bnd_cond='Periodic')    
+        
+            u_neum_direct3D = G_neum3D.direct(arr3D)
+            u_neum_sp_direct3D = sFD_neum3D.direct(arr3D)
+            np.testing.assert_array_almost_equal(u_neum_direct3D.as_array(), u_neum_sp_direct3D.as_array(), decimal=4)
+            
+            u_neum_adjoint3D = G_neum3D.adjoint(arr3D)
+            u_neum_sp_adjoint3D = sFD_neum3D.adjoint(arr3D)
+            np.testing.assert_array_almost_equal(u_neum_adjoint3D.as_array(), u_neum_sp_adjoint3D.as_array(), decimal=4)    
+            
+            u_per_direct3D = G_neum3D.direct(arr3D)
+            u_per_sp_direct3D = sFD_neum3D.direct(arr3D)  
+            np.testing.assert_array_almost_equal(u_per_direct3D.as_array(), u_per_sp_direct3D.as_array(), decimal=4)
+            
+            u_per_adjoint3D = G_per3D.adjoint(arr3D)
+            u_per_sp_adjoint3D = sFD_per3D.adjoint(arr3D)
+            np.testing.assert_array_almost_equal(u_per_adjoint3D.as_array(), u_per_sp_adjoint3D.as_array(), decimal=4)      
+        
         
 
 
@@ -437,6 +500,7 @@ class TestGradients(CCPiTestClass):
         # self.assertAlmostEqual(lhs3, rhs3)
         # self.assertTrue( LinearOperator.dot_test(Grad3 , verbose=True))
         self.assertTrue( LinearOperator.dot_test(Grad3 , decimal=5, verbose=True))
+    
 
 
 
@@ -1003,6 +1067,7 @@ class TestOperatorCompositionSum(unittest.TestCase):
                                                 2 * out2.as_array())
         numpy.testing.assert_array_almost_equal(d_out.as_array(),
                                                 2 * out2.as_array())
+
 
 
     

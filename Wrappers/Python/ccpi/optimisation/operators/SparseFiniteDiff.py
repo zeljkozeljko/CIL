@@ -22,8 +22,9 @@ from __future__ import print_function
 import scipy.sparse as sp
 import numpy as np
 from ccpi.framework import ImageData
+from ccpi.optimisation.operators import Operator
 
-class SparseFiniteDiff(object):
+class SparseFiniteDiff(Operator):
     
     
     '''Create Sparse Matrices for the Finite Difference Operator'''
@@ -32,17 +33,18 @@ class SparseFiniteDiff(object):
     def __init__(self, domain_geometry, range_geometry=None, 
       direction=0, bnd_cond = 'Neumann'):
         
+        if range_geometry is None:
+            range_geometry = domain_geometry.copy()
+
         super(SparseFiniteDiff, self).__init__(domain_geometry=domain_geometry,
                                                range_geometry=range_geometry) 
         self.direction = direction
         self.bnd_cond = bnd_cond
         
-        if self.range_geometry is None:
-            self.range_geometry = self.domain_geometry
             
-        self.get_dims = [i for i in gm_domain.shape]  
+        self.get_dims = [i for i in domain_geometry.shape]  
         
-        if self.direction + 1 > len(self.gm_domain.shape):
+        if self.direction + 1 > len(domain_geometry.shape):
             raise ValueError('Gradient directions more than geometry domain')         
             
     def matrix(self):    
@@ -58,7 +60,7 @@ class SparseFiniteDiff(object):
                 
             tmpGrad = mat if i == 0 else sp.eye(self.get_dims[0])
             
-            for j in range(1, self.gm_domain.length):
+            for j in range(1, len(self.domain_geometry().shape)):
 
                 tmpGrad = sp.kron(mat, tmpGrad ) if j == i else sp.kron(sp.eye(self.get_dims[j]), tmpGrad ) 
                 
@@ -70,24 +72,24 @@ class SparseFiniteDiff(object):
     def direct(self, x):
         
         x_asarr = x.as_array()
-        res = np.reshape( self.matrix() * x_asarr.flatten('F'), self.gm_domain.shape, 'F')
+        res = np.reshape( self.matrix() * x_asarr.flatten('F'), self.domain_geometry().shape, 'F')
         return type(x)(res)
     
     def adjoint(self, x):
         
         x_asarr = x.as_array()
-        res = np.reshape( self.matrix().T * x_asarr.flatten('F'), self.gm_domain.shape, 'F')
+        res = np.reshape( self.matrix().T * x_asarr.flatten('F'), self.domain_geometry().shape, 'F')
         return type(x)(res) 
     
     def sum_abs_row(self):
         
-        res = np.array(np.reshape(abs(self.matrix()).sum(axis=0), self.gm_domain.shape, 'F'))
+        res = np.array(np.reshape(abs(self.matrix()).sum(axis=0), self.domain_geometry().shape, 'F'))
         #res[res==0]=0
         return ImageData(res)
     
     def sum_abs_col(self):
         
-        res = np.array(np.reshape(abs(self.matrix()).sum(axis=1), self.gm_domain.shape, 'F') )
+        res = np.array(np.reshape(abs(self.matrix()).sum(axis=1), self.domain_geometry().shape, 'F') )
         #res[res==0]=0
         return ImageData(res)
         
