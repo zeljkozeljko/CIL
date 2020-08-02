@@ -16,11 +16,14 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-from .Algorithm import Algorithm, DataContainerWithHistory
+from .Algorithm import DataContainerWithHistory
+from .Algorithm import Algorithm 
+from .Algorithm import StochasticAlgorithm
 from .CGLS import CGLS
 from .SIRT import SIRT
-from .GradientDescent import GradientDescent
+from .GradientDescent import GradientDescent, StochasticGradientDescent
 from .FISTA import FISTA
+from .FISTA import SFISTA
 from .PDHG import PDHG
 from .ADMM import LADMM
 from .SPDHG import SPDHG
