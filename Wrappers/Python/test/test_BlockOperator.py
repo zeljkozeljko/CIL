@@ -374,3 +374,35 @@ class TestBlockOperator(unittest.TestCase):
         print(ig1.shape==u1.shape)
         print (G1.norm())
         numpy.testing.assert_allclose(G1.norm(), numpy.sqrt(4), atol=0.1)
+
+class BlockOperatorNewMethods(unittest.TestCase):
+    def setUp(self):
+        from ccpi.optimisation.operators import Gradient, Identity
+        ig = ImageGeometry(10,11,12)
+        bo = BlockOperator(Identity(ig), Gradient(ig), Identity(ig), Gradient(ig),
+            shape=(2,2))
+        self.ig = ig
+        self.block_operator = bo
+    def test_len(self):
+        assert len(self.block_operator) == 4
+
+    def test_getitem(self):
+        assert id(self.block_operator[0]) == id(self.block_operator.get_item(0,0))
+        assert id(self.block_operator[1]) == id(self.block_operator.get_item(0,1))
+        assert id(self.block_operator[2]) == id(self.block_operator.get_item(1,0))
+        assert id(self.block_operator[3]) == id(self.block_operator.get_item(1,1))
+    
+    def test_getitem_row_vector(self):
+        self.block_operator.shape = (1,len(self.block_operator))
+        assert id(self.block_operator[0]) == id(self.block_operator.get_item(0,0))
+        assert id(self.block_operator[1]) == id(self.block_operator.get_item(0,1))
+        assert id(self.block_operator[2]) == id(self.block_operator.get_item(0,2))
+        assert id(self.block_operator[3]) == id(self.block_operator.get_item(0,3))
+    
+    def test_getitem_column_vector(self):
+        self.block_operator.shape = (len(self.block_operator),1)
+        assert id(self.block_operator[0]) == id(self.block_operator.get_item(0,0))
+        assert id(self.block_operator[1]) == id(self.block_operator.get_item(1,0))
+        assert id(self.block_operator[2]) == id(self.block_operator.get_item(2,0))
+        assert id(self.block_operator[3]) == id(self.block_operator.get_item(3,0))
+    

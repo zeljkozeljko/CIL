@@ -262,7 +262,7 @@ class AcquisitionGeometry(object):
     ANGLE = 'angle'
     VERTICAL = 'vertical'
     HORIZONTAL = 'horizontal'
-    def __init__(self, 
+    def __init__(self,
                  geom_type, 
                  dimension=None, 
                  angles=None, 
@@ -395,8 +395,7 @@ class AcquisitionGeometry(object):
         
         if self.number_of_subsets > 1 and not copy_whole:
             number_of_subsets = 1
-            subset = self.subsets[self.subset_id]
-            angles = self.angles[subset]
+            angles = self.angles
         else:
             number_of_subsets = self.number_of_subsets
             angles = self.angles[:]
@@ -446,8 +445,8 @@ class AcquisitionGeometry(object):
                         self, 0, number_of_subsets, method) 
         # store results
         self.subsets = subsets[:]
-        self.subset_id = 0
         self.number_of_subsets = number_of_subsets
+        self.subset_id = 0
         self.subset_dimension = AcquisitionGeometry.ANGLE
         
         
@@ -500,6 +499,26 @@ class AcquisitionGeometry(object):
                 raise ValueError('Value {} unknown'.format(value))
         
         return out
+    @property
+    def subset_id(self):
+        return self._subset_id
+    @subset_id.setter
+    def subset_id(self, value):
+        if value < self.number_of_subsets:
+            self._subset_id = value
+    @property
+    def angles(self):
+        if self.number_of_subsets > 1:
+            return self._angles[self.subsets[self.subset_id]]
+        else:
+            return self._angles
+    @angles.setter
+    def angles(self, value):
+        if isinstance (value, (list, numpy.ndarray)):
+            self._angles = numpy.asarray(value)
+        else:
+            raise TypeError('Expected list or numpy.ndarray as angles, got {}'\
+                .format(type(value)))
 
 class AcquisitionGeometrySubsetGenerator(object):
     '''AcquisitionGeometrySubsetGenerator is a factory that helps generating subsets of AcquisitionData
@@ -1705,8 +1724,29 @@ class AcquisitionData(DataContainer):
         '''
         if self.geometry is not None and number_of_subsets > 1:
             self.geometry.generate_subsets(number_of_subsets, method)
+
+    def select_subset(self, index):
+        '''sets the subset'''
+        if self.geometry is not None:
+            self.geometry.subset_id = index
+    def __getitem__(self, index):
+        '''selects subset and returns self'''
+        self.select_subset(index)
+        return self
+
+    @property
+    def number_of_subsets(self):
+        '''returns the number of subsets'''
+        if self.geometry is not None:
+            return self.geometry.number_of_subsets
+        else:
+            raise ValueError('geometry is None.')
+    
+
         
-                
+############################################################################
+##    DataProcessor
+############################################################################
             
 class DataProcessor(object):
     

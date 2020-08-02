@@ -105,11 +105,11 @@ class AstraSubsetProjectorSimple(AstraProjectorSimple):
         self.subset_id = subset_id
         self.number_of_subsets = number_of_subsets
 
-        # self.sinogram_geometry.subset_id = subset_id
-
-        #self.indices = self.sinogram_geometry.subsets[subset_id]
         device = self.fp.device
         # this will only copy the subset geometry
+        # it relies on the fact that we are using a reference of the
+        # range geometry which gets modified outside.
+        # this is rather dangerous!!!
         ag = self.range_geometry().copy()
         #print (ag.shape)
         

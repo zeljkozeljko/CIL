@@ -20,6 +20,7 @@ from __future__ import division
 import sys
 import unittest
 import numpy
+import numpy as np
 from ccpi.framework import DataContainer
 from ccpi.framework import ImageData
 from ccpi.framework import AcquisitionData
@@ -912,10 +913,11 @@ class TestStochasticSubset(unittest.TestCase):
 
     def setUp(self):
         N = 128 # set dimension of the phantom
-        angles = numpy.linspace(0, numpy.pi, 180, dtype='float32')
+        num_angles = 180
+        angles = numpy.linspace(0, numpy.pi, num_angles, dtype='float32')
         n_subsets = 10
-        detectors = N
-        ag = AcquisitionGeometry('parallel','2D', angles, detectors,
+        num_pixels = N
+        ag = AcquisitionGeometry('parallel','2D', angles, num_pixels,
                                 pixel_size_h = 0.1)
 
         print ("Number of subsets", ag.number_of_subsets)
@@ -927,9 +929,11 @@ class TestStochasticSubset(unittest.TestCase):
         self.data = data
         self.data2 = data2
         self.n_subsets = n_subsets
+        self.num_angles = num_angles
+        self.num_pixels = num_pixels
 
     def test_AcquisitionData_subsets_pointers(self):
-        data = self.data
+        data = self.data    
         data2 = self.data2
         n_subsets = self.n_subsets
 
@@ -937,8 +941,8 @@ class TestStochasticSubset(unittest.TestCase):
         a2 = data2.as_array()
         self.assertFalse (id (a1) == id(a2))
 
-        self.assertTrue(data.shape == (180,128))
-        self.assertTrue(data2.shape == (180,128))
+        self.assertTrue(data.shape == (self.num_angles,self.num_pixels))
+        self.assertTrue(data2.shape == (self.num_angles,self.num_pixels))
         
         numpy.random.seed(1)
         data.geometry.generate_subsets(n_subsets, 'random')
@@ -961,8 +965,9 @@ class TestStochasticSubset(unittest.TestCase):
         data2.geometry.generate_subsets(n_subsets, 'random_permutation')
         data2.geometry.subset_id = 0
 
+        # check that same permutation is the same
         s1 = data2.geometry.subsets[3]
-        s2 = data.geometry.subsets[3]
+        s2 =  data.geometry.subsets[3]
 
         numpy.testing.assert_array_equal(s1,s2)
         
@@ -970,6 +975,8 @@ class TestStochasticSubset(unittest.TestCase):
         data2.geometry.subset_id = 8
         print (data.shape)
         print (data2.shape)
+        print (data.geometry.subsets[data.geometry.subset_id].sum())
+        print (data.geometry.shape)
         self.assertTrue(data.shape == (18,128))
         self.assertTrue(data2.shape == (18,128))
 
@@ -1035,6 +1042,50 @@ class TestStochasticSubset(unittest.TestCase):
 
         out = data.exp()
         numpy.testing.assert_array_almost_equal(out.as_array(), numpy.ones(shape)* numpy.exp(1))
+
+class TestSubset(unittest.TestCase):
+    def setUp(self):
+        detectors = 128
+        angles = np.linspace(0, np.pi, 180, dtype='float32')
+        ag = AcquisitionGeometry('parallel','2D', angles, detectors,
+                                pixel_size_h = 0.1)
+        self.ag = ag
+        
+
+    def test_generate_subsets(self):
+        data = self.ag.allocate(0)
+        num_subsets = 10
+        data.generate_subsets(number_of_subsets=num_subsets, method='stagger')
+
+        assert data.number_of_subsets == num_subsets
+
+    def test_copy_acquisition_geometry(self):
+        data = self.ag.allocate(0)
+        num_subsets = 10
+        data.generate_subsets(number_of_subsets=num_subsets, method='uniform')
+        subset_geometry = data.geometry.copy()
+        assert len(subset_geometry.angles) == len(data.geometry.angles)
+    
+    def test_select_subset(self):
+        data = self.ag.allocate(0)
+        num_subsets = 10
+        data.generate_subsets(number_of_subsets=num_subsets, method='uniform')
+        
+        angles = np.linspace(0, np.pi, 180, dtype='float32')
+        data.select_subset(0)
+
+        subset_angles = data.geometry.angles
+        np.testing.assert_array_almost_equal(angles[:18], subset_angles)
+        
+        data[1]
+        subset_angles = data.geometry.angles
+        np.testing.assert_array_almost_equal(angles[18:36], subset_angles)
+        
+        subset = data[1]
+        subset_angles = subset.geometry.angles
+        np.testing.assert_array_almost_equal(angles[18:36], subset_angles)
+        
+
 
 
 
