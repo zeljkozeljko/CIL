@@ -440,7 +440,10 @@ class AcquisitionGeometry(object):
         :param method: method used to generate subsets.
         :type method: string, allowed values 'uniform', 'random', 'random_permutation', 'stagger'
         '''
-        
+        # reset subsets to 1, i.e. no subsets if geometry already subsetted
+        if self.number_of_subsets != 1 and number_of_subsets > 1:
+            self.generate_subsets(1,'uniform')
+            
         subsets = AcquisitionGeometrySubsetGenerator.generate_subset(
                         self, 0, number_of_subsets, method) 
         # store results
@@ -1722,8 +1725,14 @@ class AcquisitionData(DataContainer):
         
         calls the geometry.generate_subsets method
         '''
-        if self.geometry is not None and number_of_subsets > 1:
+        if self.geometry is not None and number_of_subsets >= 1:
             self.geometry.generate_subsets(number_of_subsets, method)
+        else:
+            if number_of_subsets < 1:
+                raise ValueError("Cannot set {} number of subset. Required >= 1"\
+                    .format(number_of_subsets))
+            elif self.geometry is None:
+                raise ValueErro("AcquisitionGeometry is None!")
 
     def select_subset(self, index):
         '''sets the subset'''
