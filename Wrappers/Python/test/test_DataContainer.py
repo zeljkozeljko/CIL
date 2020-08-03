@@ -945,8 +945,11 @@ class TestStochasticSubset(unittest.TestCase):
         self.assertTrue(data2.shape == (self.num_angles,self.num_pixels))
         
         numpy.random.seed(1)
-        data.geometry.generate_subsets(n_subsets, 'random')
-        data.geometry.subset_id = 0
+        # data.geometry.generate_subsets(n_subsets, 'random')
+        # data.geometry.subset_id = 0
+        data.generate_subsets(n_subsets, 'random')
+        data.select_subset(0)
+        print ("beginning data.shape", data.shape)
 
         numpy.random.seed(1)
         data2.geometry.generate_subsets(n_subsets, 'random')
@@ -957,13 +960,20 @@ class TestStochasticSubset(unittest.TestCase):
 
         numpy.testing.assert_array_equal(s1,s2)
         
+        
+        # data.geometry.generate_subsets(n_subsets, 'random_permutation')
+        # data.geometry.subset_id = 0
+        # data.generate_subsets(1, 'uniform')
+        # print ("random_permutation data.shape", data.shape, data.number_of_subsets)
         numpy.random.seed(1)
-        data.geometry.generate_subsets(n_subsets, 'random_permutation')
-        data.geometry.subset_id = 0
+        data.generate_subsets(n_subsets, 'random_permutation')
+        data.select_subset(0)
+        print ("random_permutation data.shape", data.shape)
 
         numpy.random.seed(1)
         data2.geometry.generate_subsets(n_subsets, 'random_permutation')
         data2.geometry.subset_id = 0
+        print ("data2.shape", data2.shape)
 
         # check that same permutation is the same
         s1 = data2.geometry.subsets[3]
@@ -972,13 +982,14 @@ class TestStochasticSubset(unittest.TestCase):
         numpy.testing.assert_array_equal(s1,s2)
         
 
-        data2.geometry.subset_id = 8
-        print (data.shape)
+        # data2.geometry.subset_id = 8
+        print ("data.shape", data.shape)
         print (data2.shape)
         print (data.geometry.subsets[data.geometry.subset_id].sum())
         print (data.geometry.shape)
-        self.assertTrue(data.shape == (18,128))
-        self.assertTrue(data2.shape == (18,128))
+        self.assertEquals(data.shape,
+            (int(self.num_angles/n_subsets),self.num_pixels))
+        self.assertTrue(data2.shape == (int(self.num_angles/n_subsets),self.num_pixels))
 
         print ("data.as_array().shape", data.as_array().shape)
         print ("data2.as_array().shape", data2.as_array().shape)
@@ -995,7 +1006,7 @@ class TestStochasticSubset(unittest.TestCase):
         data2 = self.data2 # [2]
         n_subsets = self.n_subsets
 
-        orig_shape = (180,128)
+        orig_shape = data.shape
 
         shape = tuple(orig_shape)
         out = data + data2
@@ -1085,9 +1096,19 @@ class TestSubset(unittest.TestCase):
         subset_angles = subset.geometry.angles
         np.testing.assert_array_almost_equal(angles[18:36], subset_angles)
         
+    def test_shape(self):
+        data = self.ag.allocate(0)
+        whole_shape = list(data.shape)
 
-
-
+        num_subsets = 10
+        data.generate_subsets(number_of_subsets=num_subsets, method='uniform')
+        idx = data.get_dimension_axis('angle')
+        print ("idx", idx)
+        print ("Actual {}, whole {}".format(data.shape, whole_shape))
+        whole_shape[idx] = int(whole_shape[idx]/num_subsets)
+        print ("Actual {}, desired {}".format(data.shape, whole_shape))
+        
+        assert tuple(whole_shape) == data.shape 
 
 
 if __name__ == '__main__':
