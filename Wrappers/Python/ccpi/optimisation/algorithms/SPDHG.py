@@ -21,8 +21,45 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from ccpi.optimisation.algorithms import Algorithm, DataContainerWithHistory
+from ccpi.optimisation.operators import BlockOperator
 import numpy as np
 
+class SPDHGOperator(BlockOperator):
+    def __init__(self, *args, **kwargs):
+        super(SPDHGOperator, self).__init__(*args, **kwargs)
+        self.num_physical_subsets = kwargs.get('num_physical_subsets', 1)
+        index_of_operator = []
+        for i, op in enumerate(self.operators):
+            if self.is_subset_operator(op):
+                for j in range(self.num_physical_subsets):
+                    index_of_operator.append(i)
+            else:
+                index_of_operator.append(i)
+        self.index_of_operator = index_of_operator
+
+    def is_subset_operator(self, operator):
+        if hasattr(operator, 'is_subset_operator'):
+            return operator.is_subset_operator
+        return False
+
+    
+    @property
+    def max_operator_index(self):
+        '''returns the maximum number of operators taking into account the physical subsets'''
+        return len(self.operators) + self.num_physical_subsets - 1
+
+    def __getitem__(self, index):
+        '''returns the appropriate operator'''
+        if index > self.max_operator_index:
+            raise ValueError('Index out of range {}. Max {}'\
+                .format(index, self.max_operator_index))
+        operator = self.operators[self.index_of_operator[index]]
+        if self.is_subset_operator(operator):
+            # select subset from index
+            physical_subset_index = index - self.index_of_operator[index]
+            operator.select_subset(physical_subset_index, self.num_physical_subsets)
+        return operator
+    
 class SPDHG(Algorithm):
     r'''Stochastic Primal Dual Hybrid Gradient
     
@@ -65,9 +102,13 @@ class SPDHG(Algorithm):
         
         
     '''
-    def __init__(self, f=None, g=None, operator=None, tau=None, sigma=None,
-                 x_init=None, prob=None, gamma=1., use_axpby=True, 
-                 norms=None, **kwargs):
+    def __init__(self, f=None, g=None, operator=None, 
+                       tau=None, sigma=None, norms=None,
+                       x_init=None, gamma=1.,
+                       num_physical_subsets=1, prob=None, 
+                       physical_subset_prob=None,
+                       use_axpby=True, 
+                       **kwargs):
         '''SPDHG algorithm creator
 
         Parameters
@@ -77,11 +118,16 @@ class SPDHG(Algorithm):
         :param sigma=(sigma_i): List of Step size parameters for Dual problem
         :param tau: Step size parameter for Primal problem
         :param x_init: Initial guess ( Default x_init = 0)
-        :param prob: List of probabilities
+        :param prob: List of probabilities for each operator
         :param gamma: parameter controlling the trade-off between the primal and dual step sizes
         :param use_axpby: whether to use axpby or not
         :param norms: norms of the operators in operator
         :type norms: list, default None
+        :param num_physical_subsets: number of physical subsets
+        :type num_physical_subset: int, default 1
+        :param physical_subset_prob: probability of selection for each physical subset, 
+            once a projection operator has been selected with probability in prob.
+        :type physical_subset_prob: list, default None
         '''
         super(SPDHG, self).__init__(**kwargs)
         self._use_axpby = use_axpby
@@ -90,7 +136,8 @@ class SPDHG(Algorithm):
                         x_init=x_init, prob=prob, gamma=gamma, norms=norms)
     
     def set_up(self, f, g, operator, tau=None, sigma=None, \
-               x_init=None, prob=None, gamma=1., norms=None):
+                x_init=None, prob=None, gamma=1., norms=None,\
+                num_physical_subset=1, physical_subset_prob=None):
         '''initialisation of the algorithm
 
         :param operator: BlockOperator of Linear Operators
@@ -99,7 +146,13 @@ class SPDHG(Algorithm):
         :param sigma: list of Step size parameters for dual problem
         :param tau: Step size parameter for primal problem
         :param x_init: Initial guess ( Default x_init = 0)
-        :param prob: List of probabilities'''
+        :param prob: List of probabilities
+        :param num_physical_subsets: number of physical subsets
+        :type num_physical_subset: int, default 1
+        :param physical_subset_prob: probability of selection for each physical subset, 
+            once a projection operator has been selected with probability in prob.
+        :type physical_subset_prob: list, default None
+        '''
         print("{} setting up".format(self.__class__.__name__, ))
                     
         # algorithmic parameters
@@ -109,18 +162,18 @@ class SPDHG(Algorithm):
         self.tau = tau
         self.sigma = sigma
         self.prob = prob
-        self.ndual_subsets = len(self.operator)
+        self.num_dual_subsets = len(self.operator)
         self.gamma = gamma
         self.rho = .99
         
         if self.prob is None:
-            self.prob = [1/self.ndual_subsets] * self.ndual_subsets
+            self.prob = [1/self.num_dual_subsets] * self.num_dual_subsets
 
         
         if self.sigma is None:
             if norms is None:
                 # Compute norm of each sub-operator       
-                norms = [operator.get_item(i,0).norm() for i in range(self.ndual_subsets)]
+                norms = [operator[i].norm() for i in range(self.num_dual_subsets)]
             self.norms = norms
             self.sigma = [self.gamma * self.rho / ni for ni in norms] 
         if self.tau is None:
@@ -237,6 +290,4 @@ def create_and_replace_element_in_tuple(dtuple, index, new_element):
             dlist.append(dtuple[i])
     return tuple(dlist)
     
-
-
 

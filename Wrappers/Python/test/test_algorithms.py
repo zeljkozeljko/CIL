@@ -896,7 +896,128 @@ class TestSPDHG(unittest.TestCase):
         print ("Quality measures", qm)
         np.testing.assert_array_less( qm[0], 0.005 )
         np.testing.assert_array_less( qm[1], 3.e-05)
+    
+class TestSPDHGOperator(unittest.TestCase):
+    @unittest.skipIf(astra_not_available, "ccpi-astra not available")
+    def setUp(self):
+        from ccpi.astra.operators import AstraProjectorSimple
+        from ccpi.optimisation.operators import Gradient, Identity
+        from ccpi.framework import ImageGeometry, AcquisitionGeometry
+        from ccpi.framework import TestData
+        from ccpi.astra.processors import AstraForwardProjector, AstraBackProjector
         
+
+        class AstraSubsetProjectorSimple(AstraProjectorSimple):
+            
+            def __init__(self, geomv, geomp, device, **kwargs):
+                kwargs = {'indices':None, 
+                        'subset_acquisition_geometry':None,
+                        #'subset_id' : 0,
+                        #'number_of_subsets' : kwargs.get('number_of_subsets', 1)
+                        }
+                # This does not forward to its parent class :(
+                super(AstraSubsetProjectorSimple, self).__init__(geomv, geomp, device)
+                number_of_subsets = kwargs.get('number_of_subsets',1)
+                # self.sinogram_geometry.generate_subsets(number_of_subsets, 'random')
+                if geomp.number_of_subsets > 1:
+                    self.notify_new_subset(0, geomp.number_of_subsets)
+                self.is_subset_operator = True
+
+                
+            def notify_new_subset(self, subset_id, number_of_subsets):
+                # print ('AstraSubsetProjectorSimple notify_new_subset')
+                # updates the sinogram geometry and updates the projectors
+                self.subset_id = subset_id
+                self.number_of_subsets = number_of_subsets
+
+                device = self.fp.device
+                # this will only copy the subset geometry
+                # it relies on the fact that we are using a reference of the
+                # range geometry which gets modified outside.
+                # this is rather dangerous!!!
+                ag = self.range_geometry().copy()
+                #print (ag.shape)
+                
+                self.fp = AstraForwardProjector(volume_geometry=self.domain_geometry(),
+                                                sinogram_geometry=ag,
+                                                proj_id = None,
+                                                device=device)
+
+                self.bp = AstraBackProjector(volume_geometry = self.domain_geometry(),
+                                                sinogram_geometry = ag,
+                                                proj_id = None,
+                                                device = device)
+            
+
+            
+            def select_subset(self, subset_id, num_subsets):
+                '''alias of notify_new_subset'''
+                self.notify_new_subset(subset_id, num_subsets)
+
+        loader = TestData()
+        data = loader.load(TestData.SIMPLE_PHANTOM_2D, size=(128,128))
+        print ("here")
+        ig = data.geometry
+        ig.voxel_size_x = 0.1
+        ig.voxel_size_y = 0.1
+            
+        detectors = ig.shape[0]
+        angles = np.linspace(0, np.pi, 180)
+        ag = AcquisitionGeometry('parallel','2D',angles, detectors, pixel_size_h = 0.1)
+
+        OS_A = AstraSubsetProjectorSimple(ig, ag, device = 'gpu')
+        G = Gradient(ig)
+        I = Identity(ig)
+        self.list_operators = [OS_A, G, I]
+
+    @unittest.skipIf(astra_not_available, "ccpi-astra not available")
+    def test_max_operator_index_1(self):
+        from ccpi.optimisation.algorithms import SPDHGOperator
+        K = SPDHGOperator(*self.list_operators, num_physical_subsets=1)
+        assert K.max_operator_index == len(self.list_operators)
+        
+    @unittest.skipIf(astra_not_available, "ccpi-astra not available")
+    def test_max_operator_index_10(self):
+        from ccpi.optimisation.algorithms import SPDHGOperator
+        K = SPDHGOperator(*self.list_operators, num_physical_subsets=10)
+        assert K.max_operator_index == len(self.list_operators) + K.num_physical_subsets - 1
+    
+    @unittest.skipIf(astra_not_available, "ccpi-astra not available")
+    def test_getitem_1(self):
+        from ccpi.optimisation.algorithms import SPDHGOperator
+        K = SPDHGOperator(*self.list_operators, num_physical_subsets=1)
+        for i in range(K.max_operator_index):
+            print ("i",i)
+            assert id(K[i]) == id(self.list_operators[i])
+        
+    @unittest.skipIf(astra_not_available, "ccpi-astra not available")
+    def test_getitem_10(self):
+        from ccpi.optimisation.algorithms import SPDHGOperator
+        K = SPDHGOperator(*self.list_operators, num_physical_subsets=10)
+        j = 0
+        # for i,el in enumerate(self.list_operators):
+        #     print ("Print type: ", i, type(el), K.is_subset_operator(el))
+        for i in range(K.num_physical_subsets):
+            assert id(K[i]) == id(self.list_operators[0])
+        i += 1
+        assert id(K[i]) == id(self.list_operators[1])
+        i += 1
+        assert id(K[i]) == id(self.list_operators[2])
+            
+    @unittest.skipIf(astra_not_available, "ccpi-astra not available")
+    def test_getitem_10_v2(self):
+        from ccpi.optimisation.algorithms import SPDHGOperator
+        list_operators = [self.list_operators[1], self.list_operators[2],self.list_operators[0]]
+        K = SPDHGOperator(*list_operators, num_physical_subsets=10)
+        i = 0
+        assert id(K[i]) == id(list_operators[0])
+        i += 1
+        assert id(K[i]) == id(list_operators[1])
+        i += 1
+        for i in range(2, K.num_physical_subsets):
+            assert id(K[i]) == id(list_operators[2])
+        
+
 
 
 if __name__ == '__main__':
