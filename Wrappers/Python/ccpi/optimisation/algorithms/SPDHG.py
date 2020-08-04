@@ -59,6 +59,10 @@ class SPDHGOperator(BlockOperator):
             physical_subset_index = index - self.index_of_operator[index]
             operator.select_subset(physical_subset_index, self.num_physical_subsets)
         return operator
+
+    def __len__(self):
+        '''alias of max_operator_index'''
+        return self.max_operator_index
     
 class SPDHG(Algorithm):
     r'''Stochastic Primal Dual Hybrid Gradient
