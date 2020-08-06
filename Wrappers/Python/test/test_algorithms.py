@@ -923,7 +923,10 @@ class TestSPDHGOperator(unittest.TestCase):
                     self.notify_new_subset(0, geomp.number_of_subsets)
                 self.is_subset_operator = True
 
-                
+            @property
+            def num_subsets(self):
+                return self.range_geometry().number_of_subsets
+
             def notify_new_subset(self, subset_id, number_of_subsets):
                 # print ('AstraSubsetProjectorSimple notify_new_subset')
                 # updates the sinogram geometry and updates the projectors

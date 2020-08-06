@@ -23,7 +23,7 @@ from __future__ import print_function
 from ccpi.optimisation.algorithms import Algorithm, DataContainerWithHistory
 from ccpi.optimisation.operators import BlockOperator
 import numpy as np
-
+    
 class SPDHGOperator(BlockOperator):
     def __init__(self, *args, **kwargs):
         super(SPDHGOperator, self).__init__(*args, **kwargs)
@@ -63,7 +63,48 @@ class SPDHGOperator(BlockOperator):
     def __len__(self):
         '''alias of max_operator_index'''
         return self.max_operator_index
-    
+
+class SPDHG_Function(object):
+    def __init__(self, functions, operators):
+        super(SPDHG_Function, self).__init__()
+        self.functions = functions
+        # goes in sync with the operator
+        # save a reference to operators
+        self.operators = operators
+    def __getitem__(self, index):
+        # if at index there is a subset operator, the selected function is
+        # obtained by first to select the subset in the function and then 
+        # return the function at list_index
+        # otherwise just returns the function at list_index
+
+        list_index = self.operators.index_of_operator[index]
+        operator = self.operators[index]
+        
+        if operator.is_subset_operator(operator):
+            physical_subset_index = operator.subset_id
+            num_physical_subsets = operator.num_subsets
+            # select the function and select the physical subset
+            self.functions[list_index]\
+                .select_subset(physical_subset_index, num_physical_subsets)
+        return self.functions[list_index]
+
+class SPDGHFactory(object):
+    @staticmethod
+    def get_algorithm(f, g, operator, tau=None, sigma=None, \
+                x_init=None, prob=None, gamma=1., norms=None):
+        '''Creates an instance of SPDHG configured with the parameters passed by the user
+
+        '''
+        if isinstance(operator, BlockOperator):
+            # convert to SPDHOperator
+            K = SPDHGOperator(*operator.operators)
+        else:
+            K = SPDHGOperator(operator)
+        F = SPDHGFunction(f, K)
+
+        
+
+
 class SPDHG(Algorithm):
     r'''Stochastic Primal Dual Hybrid Gradient
     
@@ -109,8 +150,7 @@ class SPDHG(Algorithm):
     def __init__(self, f=None, g=None, operator=None, 
                        tau=None, sigma=None, norms=None,
                        x_init=None, gamma=1.,
-                       num_physical_subsets=1, prob=None, 
-                       physical_subset_prob=None,
+                       prob=None, 
                        use_axpby=True, 
                        **kwargs):
         '''SPDHG algorithm creator
@@ -127,11 +167,6 @@ class SPDHG(Algorithm):
         :param use_axpby: whether to use axpby or not
         :param norms: norms of the operators in operator
         :type norms: list, default None
-        :param num_physical_subsets: number of physical subsets
-        :type num_physical_subset: int, default 1
-        :param physical_subset_prob: probability of selection for each physical subset, 
-            once a projection operator has been selected with probability in prob.
-        :type physical_subset_prob: list, default None
         '''
         super(SPDHG, self).__init__(**kwargs)
         self._use_axpby = use_axpby
@@ -140,8 +175,7 @@ class SPDHG(Algorithm):
                         x_init=x_init, prob=prob, gamma=gamma, norms=norms)
     
     def set_up(self, f, g, operator, tau=None, sigma=None, \
-                x_init=None, prob=None, gamma=1., norms=None,\
-                num_physical_subset=1, physical_subset_prob=None):
+                x_init=None, prob=None, gamma=1., norms=None):
         '''initialisation of the algorithm
 
         :param operator: BlockOperator of Linear Operators
@@ -151,11 +185,7 @@ class SPDHG(Algorithm):
         :param tau: Step size parameter for primal problem
         :param x_init: Initial guess ( Default x_init = 0)
         :param prob: List of probabilities
-        :param num_physical_subsets: number of physical subsets
-        :type num_physical_subset: int, default 1
-        :param physical_subset_prob: probability of selection for each physical subset, 
-            once a projection operator has been selected with probability in prob.
-        :type physical_subset_prob: list, default None
+        :param norms: List of norm of the operators in operator.
         '''
         print("{} setting up".format(self.__class__.__name__, ))
                     
