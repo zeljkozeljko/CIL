@@ -26,4 +26,4 @@ from .FISTA import FISTA
 from .FISTA import SFISTA
 from .PDHG import PDHG
 from .ADMM import LADMM
-from .SPDHG import SPDHG, SPDHGOperator
+from .SPDHG import SPDHG, SPDHGFactory

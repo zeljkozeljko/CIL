@@ -451,6 +451,12 @@ class AcquisitionGeometry(object):
         self.number_of_subsets = number_of_subsets
         self.subset_id = 0
         self.subset_dimension = AcquisitionGeometry.ANGLE
+    
+    def override_subsets(self, geometry):
+        self.subsets = geometry.subsets
+        self.number_of_subsets = geometry.number_of_subsets
+        self.subset_id = geometry.subset_id
+        self.subset_dimension = geometry.subset_dimension
         
         
     def allocate(self, value=0, dimension_labels=None, **kwargs):
@@ -1732,7 +1738,7 @@ class AcquisitionData(DataContainer):
                 raise ValueError("Cannot set {} number of subset. Required >= 1"\
                     .format(number_of_subsets))
             elif self.geometry is None:
-                raise ValueErro("AcquisitionGeometry is None!")
+                raise ValueError("AcquisitionGeometry is None!")
 
     def select_subset(self, index):
         '''sets the subset'''
@@ -1744,12 +1750,16 @@ class AcquisitionData(DataContainer):
         return self
 
     @property
-    def number_of_subsets(self):
+    def num_subsets(self):
         '''returns the number of subsets'''
         if self.geometry is not None:
             return self.geometry.number_of_subsets
         else:
             raise ValueError('geometry is None.')
+    @property
+    def number_of_subsets(self):
+        '''alias of num_subsets'''
+        return self.num_subsets
     
 
         

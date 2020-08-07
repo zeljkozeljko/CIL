@@ -22,7 +22,14 @@ from __future__ import division
 from __future__ import print_function
 from ccpi.optimisation.algorithms import Algorithm, DataContainerWithHistory
 from ccpi.optimisation.operators import BlockOperator
+from ccpi.optimisation.functions import BlockFunction
 import numpy as np
+
+def select_subset(self, index):
+    self.current.geometry.subset_id = index
+    self.previous.geometry.subset_id = index
+DataContainerWithHistory.__getitem__ = select_subset
+
     
 class SPDHGOperator(BlockOperator):
     def __init__(self, *args, **kwargs):
@@ -64,9 +71,9 @@ class SPDHGOperator(BlockOperator):
         '''alias of max_operator_index'''
         return self.max_operator_index
 
-class SPDHG_Function(object):
+class SPDHGFunction(BlockFunction):
     def __init__(self, functions, operators):
-        super(SPDHG_Function, self).__init__()
+        super(SPDHGFunction, self).__init__(*functions)
         self.functions = functions
         # goes in sync with the operator
         # save a reference to operators
@@ -88,20 +95,72 @@ class SPDHG_Function(object):
                 .select_subset(physical_subset_index, num_physical_subsets)
         return self.functions[list_index]
 
-class SPDGHFactory(object):
+class SPDHGFactory(object):
     @staticmethod
     def get_algorithm(f, g, operator, tau=None, sigma=None, \
-                x_init=None, prob=None, gamma=1., norms=None):
+                      x_init=None, prob=None, gamma=1., norms=None,\
+                      max_iteration=1, update_objective_interval=1,
+                      data = None,
+                      num_physical_subsets=1, physical_subsets_method='stagger'):
         '''Creates an instance of SPDHG configured with the parameters passed by the user
 
         '''
+        rho = 0.99
         if isinstance(operator, BlockOperator):
             # convert to SPDHOperator
-            K = SPDHGOperator(*operator.operators)
+            K = SPDHGOperator(*operator.operators, 
+                               num_physical_subsets=num_physical_subsets)
         else:
             K = SPDHGOperator(operator)
         F = SPDHGFunction(f, K)
+        
+        # get the number of dual subsets
+        num_dual_subsets = len(K)
 
+        if prob is None:
+            prob = []
+            equal_probability = 1/len(K.operators)
+
+            for i in range(num_dual_subsets):
+                op = K[i]
+                if K.is_subset_operator(op):
+                    prob.append(equal_probability/num_physical_subsets) 
+                else:
+                    prob.append(equal_probability)
+        else:
+            if len(prob) != len(K):
+                raise ValueError('prob length is wrong. Expecting {} got {}'\
+                    .forma(len(K), len(prob)))
+        
+        
+        if sigma is None:
+            if norms is None:
+                # Compute norm of each sub-operator       
+                norms = [K[i].norm() for i in range(num_dual_subsets)]
+            
+            sigma = [gamma * rho / ni for ni in norms] 
+        if tau is None:
+            tau = min( [ pi / ( si * ni**2 ) \
+                for pi, ni, si in zip(prob, norms, sigma)] ) 
+            tau *= (rho / gamma)
+
+        # we should be good now
+        algo = SPDHG(max_iteration=max_iteration, 
+           update_objective_interval=update_objective_interval)
+        
+        #reset dataset to 1 subset
+        if data.num_subsets > 1:
+            #save pre-selected subset?
+            data.generate_subsets(1,physical_subset_method)
+
+        algo.set_up(F, g, K, tau=tau, sigma=tau, \
+                x_init=x_init, prob=prob, gamma=gamma, norms=norms)
+        
+        # generate physical subsets
+        data.generate_subsets(num_physical_subsets, physical_subsets_method)
+        algo.y.override_subsets (data.geometry)
+        algo.y_old.override_subsets (data.geometry)
+        return algo
         
 
 
@@ -252,7 +311,7 @@ class SPDHG(Algorithm):
         
         # Gradient ascent for the dual variable
         # y[i] = y_old[i] + sigma[i] * K[i] x
-        self.operator.get_item(i,0).direct(self.x, out=self.y[i])
+        self.operator[i].direct(self.x, out=self.y[i])
         if self._use_axpby:
             self.y[i].axpby(self.sigma[i], 1., self.y_old[i], out=self.y[i])
         else:
@@ -264,7 +323,7 @@ class SPDHG(Algorithm):
         # Back-project
         # x_tmp = K[i]^*(y[i] - y_old[i])
         self.y[i].subtract(self.y_old[i], out=self.y_old[i])
-        self.operator.get_item(i,0).adjoint(self.y_old[i], out = self.x_tmp)
+        self.operator[i].adjoint(self.y_old[i], out = self.x_tmp)
         # Update backprojected dual variable and extrapolate
         # zbar = z + (1 + theta/p[i]) x_tmp
 
