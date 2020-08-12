@@ -98,6 +98,8 @@ class AstraSubsetProjectorSimple(AstraProjectorSimple):
         # self.sinogram_geometry.generate_subsets(number_of_subsets, 'random')
         if geomp.number_of_subsets > 1:
             self.notify_new_subset(0, geomp.number_of_subsets)
+        self.is_subset_operator = True
+
         
     def notify_new_subset(self, subset_id, number_of_subsets):
         # print ('AstraSubsetProjectorSimple notify_new_subset')
