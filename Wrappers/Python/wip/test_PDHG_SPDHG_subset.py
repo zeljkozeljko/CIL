@@ -73,8 +73,15 @@ class SubsetKullbackLeibler(KullbackLeibler):
     def __init__(self, **kwargs):
         super(SubsetKullbackLeibler, self).__init__(**kwargs)
         
+    @property
+    def is_subset_function(self):
+        return True
+        
     def select_subset(self, subset_id, number_of_subsets):
         self.b.geometry.subset_id = subset_id
+        self.eta.override_subsets(self.b.geometry)
+        print ("Called select_subset of SubsetKullbackLeibler")
+    
         
         
 
@@ -128,7 +135,8 @@ if True:
     ### create subsets
     # noisy_data.generate_subsets(physical_subsets, 'stagger')
     alpha = 0.5
-    F = BlockFunction(KullbackLeibler(b = noisy_data), alpha * MixedL21Norm())
+    skl = SubsetKullbackLeibler(b = noisy_data)
+    F = BlockFunction(skl, alpha * MixedL21Norm())
     G = IndicatorBox(lower=0)
     # probabilities 1/2 projections 1/2 regularisation
     A = AstraSubsetProjectorSimple(ig, ag, device='gpu')
@@ -139,7 +147,7 @@ if True:
                       max_iteration=1000, update_objective_interval=100,
                       num_physical_subsets=physical_subsets,
                       physical_subsets_method='stagger', data=noisy_data)
-    
+    print (algo.get_last_objective())
     algo.run(1000, very_verbose=True)
     plotter2D(algo.get_output(), cmap='viridis')
     
