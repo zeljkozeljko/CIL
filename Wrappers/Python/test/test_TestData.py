@@ -19,16 +19,26 @@ from __future__ import division
 
 import numpy
 from ccpi.framework import TestData
+from ccpi.framework.TestData import data_dir
 import os, sys
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from testclass import CCPiTestClass
 import unittest
 
 class TestTestData(CCPiTestClass):
+    def setUp(self):
+        data_dir = os.path.join(
+            os.environ['SIRF_INSTALL_PATH'],
+            'share','ccpi'
+        )
+        print ("Current data_dir", data_dir)
+        
+        loader = TestData(data_dir=data_dir)
+        self.loader = loader
     def test_random_noise(self):
         # loader = TestData(data_dir=os.path.join(sys.prefix, 'share','ccpi'))
         # data_dir=os.path.join(os.path.dirname(__file__),'..', 'data')
-        loader = TestData()
+        loader = self.loader
         camera = loader.load(TestData.CAMERA)
         noisy_camera = TestData.random_noise(camera, seed=1)
         norm = (camera - noisy_camera).norm()
@@ -36,7 +46,7 @@ class TestTestData(CCPiTestClass):
 
     def test_load_CAMERA(self):
 
-        loader = TestData()
+        loader = self.loader
         res = False
         try:
             image = loader.load(TestData.CAMERA)
@@ -53,7 +63,7 @@ class TestTestData(CCPiTestClass):
 
 
     def test_load_BOAT(self):
-        loader = TestData()
+        loader = self.loader
         res = False
         try:
             image = loader.load(TestData.BOAT)
@@ -69,7 +79,7 @@ class TestTestData(CCPiTestClass):
         self.assertTrue(res)
 
     def test_load_PEPPERS(self):
-        loader = TestData()
+        loader = self.loader
         res = False
         try:
             image = loader.load(TestData.PEPPERS)
@@ -85,7 +95,7 @@ class TestTestData(CCPiTestClass):
         self.assertTrue(res)
 
     def test_load_RESOLUTION_CHART(self):
-        loader = TestData()
+        loader = self.loader
         res = False
         try:
             image = loader.load(TestData.RESOLUTION_CHART)
@@ -101,7 +111,7 @@ class TestTestData(CCPiTestClass):
         self.assertTrue(res)
 
     def test_load_SIMPLE_PHANTOM_2D(self):
-        loader = TestData()
+        loader = self.loader
         res = False
         try:
             image = loader.load(TestData.SIMPLE_PHANTOM_2D)
@@ -117,10 +127,11 @@ class TestTestData(CCPiTestClass):
         self.assertTrue(res)
 
     def test_load_SHAPES(self):
-        loader = TestData()
+        loader = self.loader
         res = False
         try:
             image = loader.load(TestData.SHAPES)
+            print (image.shape)
             if (image.shape[0] == 200) and (image.shape[1] == 300):
                 res = True
             else:

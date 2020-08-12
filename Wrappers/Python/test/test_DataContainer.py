@@ -1036,10 +1036,12 @@ class TestStochasticSubset(unittest.TestCase):
         data2.geometry.generate_subsets(n_subsets, 'uniform')
         data2.geometry.subset_id = 2
 
+        print (data.shape, data.as_array().shape)
+        print (data2.shape, data2.as_array().shape)
         shape = (18,128)
         out = data + data2
         numpy.testing.assert_array_equal(out.as_array(), 3 * numpy.ones(shape))
-
+        assert out.geometry.num_subsets == n_subsets
         data2.subtract(data, out=out)
         numpy.testing.assert_array_equal(out.as_array(), numpy.ones(shape))
         data2.add(data, out=out)
