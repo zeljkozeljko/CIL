@@ -529,6 +529,10 @@ class AcquisitionGeometry(object):
             raise TypeError('Expected list or numpy.ndarray as angles, got {}'\
                 .format(type(value)))
 
+    @property
+    def num_subsets(self):
+        return self.number_of_subsets
+
 class AcquisitionGeometrySubsetGenerator(object):
     '''AcquisitionGeometrySubsetGenerator is a factory that helps generating subsets of AcquisitionData
     
@@ -1739,7 +1743,10 @@ class AcquisitionData(DataContainer):
                     .format(number_of_subsets))
             elif self.geometry is None:
                 raise ValueError("AcquisitionGeometry is None!")
-
+    def override_subsets(self, geometry):
+        '''defer to internal geometry'''
+        self.geometry.override_subsets(geometry)
+        
     def select_subset(self, index):
         '''sets the subset'''
         if self.geometry is not None:
