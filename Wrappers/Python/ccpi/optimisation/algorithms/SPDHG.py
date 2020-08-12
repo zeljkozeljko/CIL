@@ -71,6 +71,14 @@ class SPDHGOperator(BlockOperator):
         '''alias of max_operator_index'''
         return self.max_operator_index
 
+class SPDHGDataContainerWithHistory(DataContainerWithHistory):
+    def __init__(self, geometry, initialisation=None, operators=None):
+        super(SPDHGDataContainerWithHistory, self).__init__(geometry, initialisation)
+        self.index_of_operator = operators.index_of_operator
+    def __getitem__(self, index):
+        idx = self.index_of_operator[index]
+        return self.get_item(idx)
+
 class SPDHGFunction(BlockFunction):
     def __init__(self, functions, operators):
         super(SPDHGFunction, self).__init__(*functions)
@@ -87,13 +95,18 @@ class SPDHGFunction(BlockFunction):
         list_index = self.operators.index_of_operator[index]
         operator = self.operators[index]
         
-        if operator.is_subset_operator(operator):
+        if self.operators.is_subset_operator(operator):
             physical_subset_index = operator.subset_id
             num_physical_subsets = operator.num_subsets
             # select the function and select the physical subset
             self.functions[list_index]\
                 .select_subset(physical_subset_index, num_physical_subsets)
         return self.functions[list_index]
+
+    def select_subset(self, subset_id, num_subsets):
+        for f in self.functions:
+            if hasattr(f, 'is_subset_function') and f.is_subset_function:
+                f.select_subset(subset_id, num_subsets)
 
 class SPDHGFactory(object):
     @staticmethod
@@ -130,7 +143,7 @@ class SPDHGFactory(object):
         else:
             if len(prob) != len(K):
                 raise ValueError('prob length is wrong. Expecting {} got {}'\
-                    .forma(len(K), len(prob)))
+                    .format(len(K), len(prob)))
         
         
         if sigma is None:
@@ -153,13 +166,23 @@ class SPDHGFactory(object):
             #save pre-selected subset?
             data.generate_subsets(1,physical_subset_method)
 
-        algo.set_up(F, g, K, tau=tau, sigma=tau, \
+        algo.set_up(F, g, K, tau=tau, sigma=sigma, \
                 x_init=x_init, prob=prob, gamma=gamma, norms=norms)
         
         # generate physical subsets
         data.generate_subsets(num_physical_subsets, physical_subsets_method)
-        algo.y.override_subsets (data.geometry)
-        algo.y_old.override_subsets (data.geometry)
+        # select a subset
+        F.select_subset(data.geometry.subset_id, data.geometry.num_subsets)
+
+        # we need to find in the dual variable the one that is subsetted as 
+        # the data
+        # index_of_y_subsets = []
+        # for i,op in enumerate(K.operators):
+        #     if K.is_subset_operator(op):
+        #         index_of_y_subsets.append(i)
+        #         algo.y.get_item(i).override_subsets (data.geometry)
+        #         algo.y_old.get_item(i).override_subsets (data.geometry)
+        # algo.index_of_y_subsets = index_of_y_subsets
         return algo
         
 
@@ -282,7 +305,7 @@ class SPDHG(Algorithm):
         self.x_tmp = self.operator.domain_geometry().allocate(0)
         
         # initialize dual variable to 0
-        self._y = DataContainerWithHistory(operator.range_geometry(), 0)
+        self._y = SPDHGDataContainerWithHistory(operator.range_geometry(), 0, operator)
         
         # initialize variable z corresponding to back-projected dual variable
         self.z = operator.domain_geometry().allocate(0)
@@ -338,7 +361,11 @@ class SPDHG(Algorithm):
         
     def update_objective(self):
          p1 = self.f(self.operator.direct(self.x)) + self.g(self.x)
-         d1 = -(self.f.convex_conjugate(self.y) + self.g.convex_conjugate(-1*self.operator.adjoint(self.y)))
+         d1 = - self.f.convex_conjugate(self.y)
+         tmp = -1*self.operator.adjoint(self.y)
+         d1 += self.g.convex_conjugate(tmp)
+
+         #d1 = -(self.f.convex_conjugate(self.y) + self.g.convex_conjugate(-1*self.operator.adjoint(self.y)))
 #
          self.loss.append([p1, d1, p1-d1])
 
