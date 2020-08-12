@@ -23,6 +23,7 @@ from __future__ import print_function
 from ccpi.optimisation.algorithms import Algorithm, DataContainerWithHistory
 from ccpi.optimisation.operators import BlockOperator
 from ccpi.optimisation.functions import BlockFunction
+from ccpi.framework import BlockDataContainer
 import numpy as np
 
 def select_subset(self, index):
@@ -71,14 +72,33 @@ class SPDHGOperator(BlockOperator):
         '''alias of max_operator_index'''
         return self.max_operator_index
 
-class SPDHGDataContainerWithHistory(DataContainerWithHistory):
-    def __init__(self, geometry, initialisation=None, operators=None):
-        super(SPDHGDataContainerWithHistory, self).__init__(geometry, initialisation)
+class SPDHGBlockDataContainer(BlockDataContainer):
+    def __init__(self, blockdatacontainer, operators=None):
+        super(SPDHGBlockDataContainer, self).__init__(*blockdatacontainer.containers)
         self.index_of_operator = operators.index_of_operator
+        self.operators = operators
+
     def __getitem__(self, index):
         idx = self.index_of_operator[index]
-        return self.get_item(idx)
+        dc = self.get_item(idx)
+        
+        # select subset
+        # check the geometry if it's subsetted
+        if hasattr(dc.geometry, 'num_subset') and \
+             dc.geometry.num_subsets > 1:
+            physical_subset_index = self.operator.subset_id
+            dc.geometry.subset_id = physical_subset_index
+        return dc
+    
+    def override_subsets(self, geometry):
+        # find the subset operator
+        for i,op in enumerate(self.operators):
+            if hasattr(op, 'is_subset_operator'):
+                if op.is_subset_operator:
+                    break
+        self.containers[i].override_subsets(geometry)
 
+                    
 class SPDHGFunction(BlockFunction):
     def __init__(self, functions, operators):
         super(SPDHGFunction, self).__init__(*functions)
@@ -173,7 +193,9 @@ class SPDHGFactory(object):
         data.generate_subsets(num_physical_subsets, physical_subsets_method)  
         # select a subset
         F.select_subset(data.geometry.subset_id, data.geometry.num_subsets)
-
+        K[data.geometry.subset_id]
+        algo.y_old = SPDHGBlockDataContainer(algo.y_old, K)
+        algo.y_old.override_subsets(data.geometry)
         # we need to find in the dual variable the one that is subsetted as 
         # the data
         # index_of_y_subsets = []
@@ -330,7 +352,7 @@ class SPDHG(Algorithm):
         
         # Choose subset
         i = int(np.random.choice(len(self.sigma), 1, p=self.prob))
-        
+        i = 0
         
         # Gradient ascent for the dual variable
         # y_k = y_old[i] + sigma[i] * K[i] x

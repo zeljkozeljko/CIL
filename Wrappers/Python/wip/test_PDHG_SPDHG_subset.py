@@ -63,6 +63,7 @@ class AstraSubsetProjectorSimple(AstraProjectorSimple):
     
     def select_subset(self, subset_id, num_subsets):
         '''alias of notify_new_subset'''
+        print ("Should select subset")
         self.notify_new_subset(subset_id, num_subsets)
 
     @property
@@ -148,7 +149,7 @@ if True:
                       num_physical_subsets=physical_subsets,
                       physical_subsets_method='stagger', data=noisy_data)
     print (algo.get_last_objective())
-    algo.run(1000, very_verbose=True)
+    algo.run(1000, verbose=False)
     plotter2D(algo.get_output(), cmap='viridis')
     
 else:
