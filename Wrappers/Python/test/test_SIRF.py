@@ -12,6 +12,16 @@ try:
 except ImportError as ie:
     has_sirf = False
 
+class UnsupportedObject(object):
+    pass
+
+class SupportedObject(object):
+    def __rmul__(self, other):
+        return True
+    def __radd__(self, other):
+        return True
+    def __rsub__(self, other):
+        return True
 
 class TestSIRFCILIntegration(unittest.TestCase):
     
@@ -31,9 +41,26 @@ class TestSIRFCILIntegration(unittest.TestCase):
     def tearDown(self):
         if has_sirf:
             shutil.rmtree(self.cwd)
+    @unittest.skipUnless(has_sirf, "Has SIRF")
+    def test_SIRF_DataContainer_max(self):
+        print("test SIRF DataContainer max")
+        os.chdir(self.cwd)
+        image1 = pet.ImageData('emission.hv')
+        image1.fill(1.)
+        arr = image1.as_array()
+        arr[0][0][0] = 10
+        image1.fill(arr)
+        assert image1.max() == 10
+    @unittest.skipUnless(has_sirf, "Has SIRF")
+    def test_SIRF_DataContainer_dtype(self):
+        print("test SIRF DataContainer max")
+        os.chdir(self.cwd)
+        image1 = pet.ImageData('emission.hv')
+        assert image1.dtype == numpy.float32
 
     @unittest.skipUnless(has_sirf, "Has SIRF")
     def test_BlockDataContainer_with_SIRF_DataContainer_divide(self):
+        print ("test_BlockDataContainer_with_SIRF_DataContainer_divide")
         os.chdir(self.cwd)
         image1 = pet.ImageData('emission.hv')
         image2 = pet.ImageData('emission.hv')
@@ -42,9 +69,9 @@ class TestSIRFCILIntegration(unittest.TestCase):
         print (image1.shape, image2.shape)
         
         tmp = image1.divide(1.)
-        # numpy.testing.assert_array_equal(image1.as_array(), tmp.as_array())
+        numpy.testing.assert_array_equal(image1.as_array(), tmp.as_array())
         tmp = image2.divide(1.)
-        # numpy.testing.assert_array_equal(image2.as_array(), tmp.as_array())
+        numpy.testing.assert_array_equal(image2.as_array(), tmp.as_array())
         
 
         # image.fill(1.)
@@ -55,6 +82,7 @@ class TestSIRFCILIntegration(unittest.TestCase):
 
     @unittest.skipUnless(has_sirf, "Has SIRF")
     def test_BlockDataContainer_with_SIRF_DataContainer_multiply(self):
+        print("test_BlockDataContainer_with_SIRF_DataContainer_multiply")
         os.chdir(self.cwd)
         image1 = pet.ImageData('emission.hv')
         image2 = pet.ImageData('emission.hv')
@@ -76,6 +104,7 @@ class TestSIRFCILIntegration(unittest.TestCase):
     
     @unittest.skipUnless(has_sirf, "Has SIRF")
     def test_BlockDataContainer_with_SIRF_DataContainer_add(self):
+        print("test_BlockDataContainer_with_SIRF_DataContainer_add")
         os.chdir(self.cwd)
         image1 = pet.ImageData('emission.hv')
         image2 = pet.ImageData('emission.hv')
@@ -100,6 +129,7 @@ class TestSIRFCILIntegration(unittest.TestCase):
     
     @unittest.skipUnless(has_sirf, "Has SIRF")
     def test_BlockDataContainer_with_SIRF_DataContainer_subtract(self):
+        print("test_BlockDataContainer_with_SIRF_DataContainer_subtract")
         os.chdir(self.cwd)
         image1 = pet.ImageData('emission.hv')
         image2 = pet.ImageData('emission.hv')
@@ -117,6 +147,58 @@ class TestSIRFCILIntegration(unittest.TestCase):
 
         self.assertBlockDataContainerEqual(bdc , bdc1)
 
+    @unittest.skipUnless(has_sirf, "Has SIRF")
+    def test_SIRF_DataContainer_multiply_with_other_object(self):
+        print("test_SIRF_DataContainer_multiply_with_other_object")
+        os.chdir(self.cwd)
+        image1 = pet.ImageData('emission.hv')
+        unsupported = UnsupportedObject()
+        supported = SupportedObject()
+
+        try:
+            ret = image1 * unsupported
+            self.assertTrue(False)
+        except TypeError as te:
+            print ("Catching ", te)
+            self.assertTrue(True)
+        
+        ret = image1 * supported
+        self.assertTrue(ret)
+    @unittest.skipUnless(has_sirf, "Has SIRF")
+    def test_SIRF_DataContainer_add_with_other_object(self):
+        print("test_SIRF_DataContainer_multiply_with_other_object")
+        os.chdir(self.cwd)
+        image1 = pet.ImageData('emission.hv')
+        unsupported = UnsupportedObject()
+        supported = SupportedObject()
+
+        try:
+            ret = image1 + unsupported
+            self.assertTrue(False)
+        except TypeError as te:
+            print ("Catching ", te)
+            self.assertTrue(True)
+        
+        ret = image1 + supported
+        self.assertTrue(ret)
+    
+    @unittest.skipUnless(has_sirf, "Has SIRF")
+    def test_SIRF_DataContainer_subtract_with_other_object(self):
+        print("test_SIRF_DataContainer_multiply_with_other_object")
+        os.chdir(self.cwd)
+        image1 = pet.ImageData('emission.hv')
+        unsupported = UnsupportedObject()
+        supported = SupportedObject()
+
+        try:
+            ret = image1 - unsupported
+            self.assertTrue(False)
+        except TypeError as te:
+            print ("Catching ", te)
+            self.assertTrue(True)
+        
+        ret = image1 - supported
+        self.assertTrue(ret)
 
     def assertBlockDataContainerEqual(self, container1, container2):
         print ("assert Block Data Container Equal")
