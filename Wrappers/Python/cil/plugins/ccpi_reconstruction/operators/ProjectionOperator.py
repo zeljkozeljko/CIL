@@ -30,8 +30,49 @@ class ProjectionOperatorFactory(object):
     def get_operator(acquisition_geometry):
         ig = setupCCPiGeometries(acquisition_geometry.get_ImageGeometry(), 
                                  acquisition_geometry, 0)
-        return ProjectionOperator(ig, acquisition_geometry)
+        ag = ProjectionOperatorFactory.get_updatedAcquisitionGeometry(ig, acquisition_geometry)
+        return ProjectionOperator(ig, ag)
+    @staticmethod
+    def get_updatedAcquisitionGeometry(ig, ag_in):
+        # ig = operator.domain_geometry()
+        # ag = acquisition_data.geometry.copy()
+        ag = ag_in.copy()
 
+        # check the vertical dimension
+        vpix = ig.shape[ig.dimension_labels.index('vertical')]
+        data_vpix = ag.shape[ag.dimension_labels.index('vertical')]
+        diff = vpix - data_vpix
+        if diff > 0:
+            # needs to pad the data
+            ag.config.panel.num_pixels[1] = vpix
+        return ag
+
+    @staticmethod
+    def pad_AcquisitionData(operator, acquisition_data):
+        ig = operator.domain_geometry()
+        ag = acquisition_data.geometry.copy()
+
+        # check the vertical dimension
+        vpix = ig.shape[ig.dimension_labels.index('vertical')]
+        data_vpix = ag.shape[ag.dimension_labels.index('vertical')]
+        diff = vpix - data_vpix
+        if diff > 0:
+            # needs to pad the data
+            ag.config.panel.num_pixels[1] = vpix
+            d = ag.allocate(0)
+            if diff %2 ==0:
+                j = diff // 2
+                d.array[:,j:-j,:] = acquisition_data.as_array()[:]
+            else:
+                j = ( diff // 2 ) + 1
+                d.array[:,j-1:-j,:] = acquisition_data.as_array()[:]
+            return d
+        elif diff < 0:
+            raise ValueError('Cannot shrink acquisition data. Requested vertical size {}, got {}'\
+                .format(vpix, data_vpix))
+        else:
+            return acquisition_data
+        
 class ProjectionOperator(Operator):
     """CCPi projector modified to use DataSet and geometry."""
     def __init__(self, geomv, geomp, default=False):

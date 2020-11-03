@@ -51,19 +51,12 @@ data_centred.fill(shifted)
 ag = data_centred.geometry
 
 print("default ig", ag.get_ImageGeometry())
-
 projector = ProjectionOperatorFactory.get_operator(ag)
 ig = projector.domain_geometry()
 
+d = ProjectionOperatorFactory.pad_AcquisitionData(projector, data_centred)
+
 print("ccpi ig", ig)
-
-
-# Data need to be padded. This should use the Padder
-if ig.shape != ag.get_ImageGeometry().shape:
-    # needs to pad the data
-    ag.config.panel.num_pixels[1] = 136
-    d = ag.allocate(0)
-    d.array[:,1:-1,:] = data_centred.as_array()[:]
 
 cgls = CGLS(operator=projector, data=d, max_iteration=10, update_objective_interval=1)
 cgls.run(5, verbose=1)
