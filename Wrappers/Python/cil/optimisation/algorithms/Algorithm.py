@@ -122,15 +122,16 @@ class Algorithm(object):
                 raise ValueError('Algorithm not configured correctly. Please run set_up.')
             self.update()
             self.timing.append( time.time() - time0 )
-            self.iteration += 1
             
-            self.update_previous_solution()
             
-            if self.iteration >= 0 and self.update_objective_interval > 0 and\
+            if self.iteration > 0 and self.update_objective_interval > 0 and\
                 self.iteration % self.update_objective_interval == 0:
                 
                 self._iteration.append(self.iteration)
                 self.update_objective()
+            
+            self.iteration += 1
+            self.update_previous_solution()
             
 
     def update_previous_solution(self):
@@ -156,7 +157,10 @@ class Algorithm(object):
         '''
         return_all =  kwargs.get('return_all', False)
         try:
-            objective = self.__loss[-1]
+            which = -1
+            if kwargs.get('first', False):
+                which = 0
+            objective = self.__loss[which]
         except IndexError as ie:
             objective = [np.nan, np.nan, np.nan] if return_all else np.nan 
         if isinstance (objective, list):
@@ -260,30 +264,33 @@ class Algorithm(object):
         if verbose:
             print (self.verbose_header(very_verbose))
             
+            
         for _ in self:
             # __next__ is called
-
+            
             # the following code is just for displaying purposes of the status of the minimisation
 
             # self.iteration is incremented in __next__, so now we have 
             # self.iteration is one iteration larger than what we want to display
             self.iteration -= 1
+            if verbose:
+                if self.iteration == 0:
+                    print (self.verbose_output(very_verbose, first=True))
+                elif i % print_interval == 0:
+                    print (self.verbose_output(very_verbose))
+                    
             if self.update_objective_interval > 0 and\
                 self.iteration % self.update_objective_interval == 0: 
                 if callback is not None:
                     callback(self.iteration, self.get_last_objective(return_all=very_verbose), self.x)
-            if verbose:
-                if i % print_interval == 0:
-                    print (self.verbose_output(very_verbose))
-            
             
             # restore self.iteration value to what it should be
             self.iteration += 1
-
             # check if run has to stop
             i += 1
             if i == iterations:
                 break
+
         
         # see comment above regarding removing 1 from iteration
         self.iteration -= 1
@@ -304,7 +311,7 @@ class Algorithm(object):
         self.iteration += 1
         
 
-    def verbose_output(self, verbose=False):
+    def verbose_output(self, verbose=False, first=False):
         '''Creates a nice tabulated output'''
         timing = self.timing
         if len (timing) == 0:
@@ -315,15 +322,16 @@ class Algorithm(object):
                  self.iteration, 
                  self.max_iteration,
                  "{:.3f}".format(t), 
-                 self.objective_to_string(verbose)
+                 self.objective_to_string(verbose, first=first)
                )
         # Print to log file if desired
         if self.logger:
             self.logger.info(out)
         return out
 
-    def objective_to_string(self, verbose=False):
-        el = self.get_last_objective(return_all=verbose)
+    def objective_to_string(self, verbose=False, first=False):
+        el = self.get_last_objective(return_all=verbose, first=first)
+
         if self.update_objective_interval == 0 or \
             self.iteration % self.update_objective_interval != 0:
             el = [ np.nan, np.nan, np.nan] if verbose else np.nan
