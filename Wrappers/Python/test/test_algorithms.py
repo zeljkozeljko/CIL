@@ -867,3 +867,26 @@ class TestPrint(unittest.TestCase):
         np.testing.assert_array_equal([0, 10, 20, 30, 40, 50, 60, 70, 80], algo.iterations)
         np.testing.assert_array_equal([0, 100, 400, 900, 1600, 2500, 3600, 4900, 6400], algo.objective)
 
+    def test_print2(self):
+        def callback (iteration, objective, solution):
+            print("I am being called ", iteration)
+        max_iteration = 5
+        algo = PrintAlgo(update_objective_interval = 1, max_iteration = max_iteration)
+
+        algo.run(max_iteration, verbose=2, print_interval = 1)
+        # it 0
+        # it 10 
+        # it 20
+        
+        print (algo._iteration)
+        print (algo.objective)
+        np.testing.assert_array_equal([0, 1, 2, 3, 4, 5], algo.iterations)
+        np.testing.assert_array_equal([0, 1, 4, 9, 16, 25], algo.objective)
+
+        algo = PrintAlgo(update_objective_interval = 5, max_iteration = max_iteration * 2)
+
+        algo.run(max_iteration * 2, verbose=2, print_interval = 2)
+        np.testing.assert_array_equal([0, 5, 10], algo.iterations)
+        np.testing.assert_array_equal([0, 25, 100], algo.objective)
+        
+
