@@ -4,7 +4,7 @@ from cil.optimisation.algorithms import PDHG
 
 class TotalGeneralisedVariation(Function):
             
-    def __init__(self,
+    def __init__(self, domain,
                  alpha = 1.0,
                  beta = 2.0,
                  max_iteration=100, 
@@ -36,9 +36,13 @@ class TotalGeneralisedVariation(Function):
         self.g2 = ZeroFunction()     
         
         self.verbose = verbose
-        
+
         
     def proximal(self, x, tau, out = None):
+
+
+        # if configured ok
+        # else setup members
         
         if not hasattr(self, 'domain'):
             self.domain = x.geometry
@@ -54,14 +58,20 @@ class TotalGeneralisedVariation(Function):
         if not all(hasattr(self, attr) for attr in ["g1", "g"]):
             self.g1 = L2NormSquared(b = x)
             self.g = BlockFunction(self.g1, self.g2) 
-                
+                    
+        # if not hasattr(self, 'pdhg'):
+
         #TODO warm start is better, use initial
-        self.pdhg = PDHG(f = self.f, g=self.g, operator = self.BlockOp,
+        # self.initial not self.pdhg.initial
+        self.pdhg = PDHG(initial = out,  f = self.f, g=self.g, operator = self.BlockOp,
                    update_objective_interval = self.iterations, 
                    max_iteration = self.iterations, gamma_g = 0.5)
         self.__call__ = self.pdhg.objective
         self.pdhg.run(verbose=self.verbose)        
         return self.pdhg.solution
+
+
+
  
     def convex_conjugate(self,x):        
         return 0.0    
