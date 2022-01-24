@@ -19,18 +19,12 @@ from cil.framework import DataContainer, BlockDataContainer
 from cil.optimisation.algorithms import Algorithm
 import warnings
 import numpy as np
-<<<<<<< HEAD
-=======
 from numbers import Number
 
->>>>>>> master
 
 
 class PDHG(Algorithm):
 
-<<<<<<< HEAD
-    r"""Primal Dual Hybrid Gradient
-=======
     r"""Primal Dual Hybrid Gradient (PDHG) algorithm, see :cite:`CP2011`, :cite:`EZXC2010`.
 
     Parameters
@@ -56,7 +50,6 @@ class PDHG(Algorithm):
 
     **kwargs:
         Keyward arguments used from the base class :class:`Algorithm`.    
->>>>>>> master
     
         max_iteration : :obj:`int`, optional, default=0
             Maximum number of iterations of the PDHG.
@@ -90,25 +83,6 @@ class PDHG(Algorithm):
 
     where :math:`f` and :math:`g` are convex functions with "simple" proximal operators. 
     
-<<<<<<< HEAD
-      \min_{x} f(Kx) + g(x)
-
-    #TODO Add general information about PDHG, e.g, proximal, proximal conjugate, saddle point
-    #TODO Mention acceleration cases.
-
-    Note: A function f is strongly convex with parameter :math: $\gamma$ iff the function 
-    
-    .. math:: 
-    
-        f(x) - \frac{\gamma}{2}\|x\|^{2}
-    
-    is convex.
-
-    For more information, see https://en.wikipedia.org/wiki/Convex_function#Strongly_convex_functions    
- 
-    Remark: Convergence is guaranted provided that
-        
-=======
     :math:`X` and :math:`Y` are two two finite-dimensional vector spaces with an inner product and representing the domain of :math:`g` and :math:`f^{*}`, the convex conjugate of :math:`f`, respectively.
 
     The operator :math:`K` is a continuous linear operator with operator norm defined as 
@@ -130,7 +104,6 @@ class PDHG(Algorithm):
     * gradient descent step for the primal problem and
     * an over-relaxation of the primal variable.
 
->>>>>>> master
     .. math:: 
     
         y^{n+1} = \mathrm{prox}_{\sigma f^{*}}(y^{n} + \sigma K \bar{x}^{n})
@@ -232,29 +205,6 @@ class PDHG(Algorithm):
                 \tau_{n+1} & = \theta_{n}\tau_{n}\\
                 \sigma_{n+1} & = \frac{\sigma_{n}}{\theta_{n}}
         
-<<<<<<< HEAD
-        (b) E. Esser, X. Zhang and T. F. Chan (2010), "A general framework for a class of first
-        order primal–dual algorithms for convex optimization in imaging science",
-        SIAM J. Imaging Sci. 3, 1015–1046.
-
-    """
-
-    def __init__(self, f=None, g=None, operator=None, tau=None, sigma=1.,initial=None, use_axpby=True, **kwargs):
-        '''PDHG algorithm creator
-
-        Optional parameters
-
-        :param operator: a Linear Operator
-        :param f: Convex function with "simple" proximal of its conjugate. 
-        :param g: Convex function with "simple" proximal .
-        :param tau: Step size parameter for Primal problem
-        :param sigma: Step size parameter for Dual problem
-        :param initial: Initial guess ( Default initial = 0)
-        :param gamma_g: Strongly convex constant for the function g.     
-        :param gamma_fconj: Strongly convex constant for the convex conjugate of the function f.
-
-        '''
-=======
             \end{aligned}
 
       * If :math:`f^{*}` is strongly convex, we swap :math:`\sigma` with :math:`\tau`.
@@ -278,7 +228,6 @@ class PDHG(Algorithm):
 
     def __init__(self, f, g, operator, tau=None, sigma=None,initial=None, use_axpby=True, **kwargs):
 
->>>>>>> master
         super(PDHG, self).__init__(**kwargs)
         if kwargs.get('x_init', None) is not None:
             if initial is None:
@@ -290,13 +239,6 @@ class PDHG(Algorithm):
                     .format(self.__class__.__name__))
         self._use_axpby = use_axpby
 
-<<<<<<< HEAD
-        if f is not None and operator is not None and g is not None:
-            self.set_up(f=f, g=g, operator=operator, tau=tau, sigma=sigma, initial=initial, **kwargs)
-
-    def set_up(self, f, g, operator, tau=None, sigma=1., initial=None, **kwargs):
-        '''initialisation of the algorithm
-=======
         self._tau = None
         self._sigma = None 
         
@@ -332,7 +274,6 @@ class PDHG(Algorithm):
 
     def set_gamma_g(self, value):
         '''Set the value of the strongly convex constant for function `g`
->>>>>>> master
 
         Parameters
         ----------
@@ -399,18 +340,11 @@ class PDHG(Algorithm):
         self.g = g
         self.operator = operator
 
-<<<<<<< HEAD
-        normK = self.operator.norm()
-        self.tau = 1./normK
-        self.sigma = 1./normK
-        
-=======
         self.set_step_sizes(sigma=sigma, tau=tau)
 
         if kwargs.get('check_convergence', True):
             self.check_convergence()
 
->>>>>>> master
         if initial is None:
             self.x_old = self.operator.domain_geometry().allocate(0)
         else:
@@ -423,39 +357,13 @@ class PDHG(Algorithm):
 
         # relaxation parameter, default value is 1.0
         self.theta = kwargs.get('theta',1.0)
-<<<<<<< HEAD
-
-        # Primal Acceleration: Function g is strongly convex 
-        self.gamma_g = kwargs.get('gamma_g', None)
-
-        # Dual Acceleration : Convex conjugate of f is strongly convex
-        self.gamma_fconj = kwargs.get('gamma_fconj', None) 
-
-        try:
-            self.gamma_g = self.g.gamma
-        except AttributeError:
-            pass
-
-        try:
-            self.gamma_fconj = self.f.conjugate.gamma
-        except AttributeError:
-            pass        
-
-        if self.gamma_g is not None:
-            warnings.warn("Primal Acceleration of PDHG: The function g is assumed to be strongly convex with parameter `gamma_g`. Need to be sure that gamma_g = {} is the correct strongly convex constant for g. ".format(self.gamma_g))
-        
-        if self.gamma_fconj is not None:
-            warnings.warn("Dual Acceleration of PDHG: The convex conjugate of function f is assumed to be strongly convex with parameter `gamma_fconj`. Need to be sure that gamma_fconj = {} is the correct strongly convex constant".format(self.gamma_fconj))
-=======
           
         if self.gamma_g is not None:            
             warnings.warn("Primal Acceleration of PDHG: The function g is assumed to be strongly convex with positive parameter `gamma_g`. You need to be sure that gamma_g = {} is the correct strongly convex constant for g. ".format(self.gamma_g))
         
         if self.gamma_fconj is not None:
             warnings.warn("Dual Acceleration of PDHG: The convex conjugate of function f is assumed to be strongly convex with positive parameter `gamma_fconj`. You need to be sure that gamma_fconj = {} is the correct strongly convex constant".format(self.gamma_fconj))
->>>>>>> master
         
-
         self.configured = True
         print("{} configured".format(self.__class__.__name__, ))
 
@@ -507,38 +415,13 @@ class PDHG(Algorithm):
 
         self.g.proximal(self.x_tmp, self.tau, out=self.x)
 
-<<<<<<< HEAD
-        #update_previous_solution() called after update by base class
-=======
         # update_previous_solution() called after update by base class
->>>>>>> master
         #i.e current solution is now in x_old, previous solution is now in x        
 
         # update the step sizes for special cases
         self.update_step_sizes()
 
 
-<<<<<<< HEAD
-    def update_step_sizes(self):
-    
-        # Update sigma and tau based on the strong convexity of G
-        if self.gamma_g is not None:
-            self.theta = 1.0/ np.sqrt(1 + 2 * self.gamma_g * self.tau)
-            self.tau *= self.theta
-            self.sigma /= self.theta 
-
-        # Update sigma and tau based on the strong convexity of F
-        # Following operations are reversed due to symmetry, sigma --> tau, tau -->sigma
-        if self.gamma_fconj is not None:            
-            self.theta = 1.0 / np.sqrt(1 + 2 * self.gamma_fconj * self.sigma)
-            self.sigma *= self.theta
-            self.tau /= self.theta    
-
-        if self.gamma_g is not None and self.gamma_fconj is not None:
-            raise NotImplementedError("This case is not implemented")
-                    
-        
-=======
     def check_convergence(self):
         """  Check whether convergence criterion for PDHG is satisfied with scalar values of tau and sigma
 
@@ -620,7 +503,6 @@ class PDHG(Algorithm):
             self._tau /= self.theta    
 
 
->>>>>>> master
     def update_objective(self):
         """
         Evaluates the primal objective, the dual objective and the primal-dual gap.
@@ -653,9 +535,4 @@ class PDHG(Algorithm):
 
     @property
     def primal_dual_gap(self):
-<<<<<<< HEAD
         return [x[2] for x in self.loss]
-
-=======
-        return [x[2] for x in self.loss]
->>>>>>> master
