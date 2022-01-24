@@ -1,14 +1,30 @@
-* 21.2.1
+* 2x.x.x
+  - added sapyb and deprecated axpby
+
+* 21.3.1
+  - Added matplotlib version dependency to conda recipe
+  - Fixed TIGRE wrappers for geometry with a virtual detector
+  - Fixed TIGRE wrappers for cone-beam geometry with tilted rotation axis
+
+* 21.3.0
+  - Accelerated PDHG which handles strong convexity of functions
+  - TotalVariation Function handles SIRF ImageData
+  - Simulated datasets and volume added to DataExamples
+  - TIGRE wrappers for parallel-beam geometry added
+  - NEXUSWriter and NEXUSReader offer (8bit and 16bit) compression of data
+  - show2D show_geom now return an object that can be saved with a `save` method
   - GradientOperator can be now used with SIRF DataContainers, both PET and MR
   - Add anisotropy in TotalVariation function
   - CCPi Regularisation plugin is refactored, only FGP_TV, FGP_dTV, TGV and TNV are exposed. Docstrings and functionality unit tests are added. Tests of the functions are meant to be in the CCPi-Regularisation toolkit itself.
   - Add dtype for ImageGeometry, AcquisitionGeometry, VectorGeometry, BlockGeometry
   - Fix GradientOperator to handle pseudo 2D CIL geometries
-  - Created Reconstructor base class for simpler use of CIL methods
+  - Created recon module with FBP and FDK using fast filtering library and TIGRE backprojectors
   - Added Intel IPP based library for filtering step of FBP
-  - Created FBP Reconstructor class using IPP
   - PDHG memory optimisation
   - ScaledFunction memory Optimisation
+  - The github actions are merged into one action with multiple jobs
+  - The conda build job uploads an artifact of the build tar.bz file which is later used by the documentation build job - which installs the package into a miniconda environment.
+  - Documentation pages for recon, astra and cil-plugins are published.
 
 * 21.2.0
   - add version string from git describe
