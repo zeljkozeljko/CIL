@@ -75,7 +75,7 @@ class TotalGeneralisedVariation(Function):
             tmp = self.f(self.pdhg.operator.direct(self.pdhg.solution))
             return tmp
         
-    def proximal(self, x, tau, out = None):
+    def proximal(self, x, tau, out = None, gamma_g=None):
         
         if not hasattr(self, 'domain'):
             self.domain = x.geometry
@@ -109,7 +109,7 @@ class TotalGeneralisedVariation(Function):
         if not hasattr(self, 'pdhg'):            
             self.pdhg = PDHG(f = self.f, g=self.g, operator = self.operator,
                        update_objective_interval = self.iterations,
-                       max_iteration = self.iterations)
+                       max_iteration = self.iterations, gamma_g = gamma_g)
 
         # Avoid using pdhg.run() because of print messages (configure PDHG)
         for _ in range(self.iterations):
