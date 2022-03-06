@@ -20,6 +20,7 @@ from cil.optimisation.functions import Function, BlockFunction, MixedL21Norm, Ze
 from cil.optimisation.operators import GradientOperator, BlockOperator,IdentityOperator, ZeroOperator, SymmetrisedGradientOperator
 from cil.optimisation.algorithms import PDHG
 
+
 class TotalGeneralisedVariation(Function):
             
     def __init__(self,
@@ -28,8 +29,7 @@ class TotalGeneralisedVariation(Function):
                  max_iteration=100, 
                  correlation = "Space",
                  backend = "c",
-                 split = False,
-                 verbose = 0):
+                 split = False):
         
         super(TotalGeneralisedVariation, self).__init__(L = None)
 
@@ -53,9 +53,7 @@ class TotalGeneralisedVariation(Function):
         self.f1 = self.alpha * MixedL21Norm()
         self.f2 = self.beta * MixedL21Norm()
         self.f = BlockFunction(self.f1, self.f2)              
-        self.g2 = ZeroFunction()     
-        
-        self.verbose = verbose
+        self.g2 = ZeroFunction()             
 
     def __call__(self, x):
         
@@ -75,11 +73,16 @@ class TotalGeneralisedVariation(Function):
             tmp = self.f(self.pdhg.operator.direct(self.pdhg.solution))
             return tmp
         
-    def proximal(self, x, tau, out = None, gamma_g=None):
+    def proximal(self, x, tau, out = None):
         
         if not hasattr(self, 'domain'):
-            self.domain = x.geometry
             
+            # try to get geometry (sirf)
+            try:
+                self.domain = x.geometry
+            except:
+                self.domain = x            
+                        
         if not hasattr(self, 'operator'):
             
             self.Gradient = GradientOperator(self.domain, correlation = self.correlation, backend = self.backend)  
@@ -94,34 +97,42 @@ class TotalGeneralisedVariation(Function):
                                                shape=(2,2))    
 
         if not all(hasattr(self, attr) for attr in ["g1", "g"]):
-            self.g1 = L2NormSquared(b = x)
+            self.g1 = (0.5/tau)*L2NormSquared(b = x)
             self.g = BlockFunction(self.g1, self.g2)
             
         # setup PDHG    
-        self.alpha *=tau
-        self.beta *=tau
         
         # configure PDHG only once. This has the advantage of warm-starting in 
         # the case where this proximal method is used as an inner solver inside an algorithm.
         # That means we run .proximal for 100 iterations for one iteration of the outer algorithm,
         # and in the next iteration, we run 100 iterations of the inner solver, but we begin where we stopped before.
 
-        if not hasattr(self, 'pdhg'):            
-            self.pdhg = PDHG(f = self.f, g=self.g, operator = self.operator,
-                       update_objective_interval = self.iterations,
-                       max_iteration = self.iterations, gamma_g = gamma_g)
-
+        
+        
+        # configure pdhg in every iteration ???         
+        self.pdhg = PDHG(f = self.f, g=self.g, operator = self.operator,
+                   update_objective_interval = self.iterations,
+                   max_iteration = self.iterations)
+        self.pdhg.run(verbose=0)
+        
+        # if not hasattr(self, 'pdhg'):            
+        #     self.pdhg = PDHG(f = self.f, g=self.g, operator = self.operator,
+        #                update_objective_interval = self.iterations,
+        #                max_iteration = self.iterations, gamma_g = gamma_g)        
         # Avoid using pdhg.run() because of print messages (configure PDHG)
-        for _ in range(self.iterations):
-            self.pdhg.__next__()
-
+        # for _ in range(self.iterations):
+            # self.pdhg.__next__()
+        #         
         # need to reset, iteration attribute for pdhg
-        self.pdhg.iteration=0
+        # self.pdhg.iteration=0
                     
         if out is None:
             return self.pdhg.solution[0]
         else:
-            out.fill(self.pdhg.solution[0])
+            out.fill(self.pdhg.solution[0])            
 
-    def convex_conjugate(self,x):        
+    def convex_conjugate(self,x):  
+        
         return 0.0
+    
+    
