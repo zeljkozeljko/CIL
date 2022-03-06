@@ -26,7 +26,7 @@ class TotalGeneralisedVariation(Function):
     def __init__(self,
                  alpha = 1.0,
                  beta = 2.0,
-                 max_iteration=100, 
+                 max_iteration = 100, 
                  correlation = "Space",
                  backend = "c",
                  split = False):
