@@ -73,7 +73,7 @@ class TotalGeneralisedVariation(Function):
             tmp = self.f(self.pdhg.operator.direct(self.pdhg.solution))
             return tmp
         
-    def proximal(self, x, tau, out = None):
+    def proximal(self, x, tau=1.0, out = None):
         
         if not hasattr(self, 'domain'):
             
