@@ -16,7 +16,7 @@
 #   limitations under the License.
 
 from cil.optimisation.functions import L2NormSquared
-from cil.optimisation.functions import TotalVariation
+from cil.optimisation.functions import TotalVariation, TotalGeneralisedVariation
 
 from cil.utilities import dataexample
 
@@ -217,12 +217,57 @@ class Test_CIL_vs_CVXPy(unittest.TestCase):
             # compare objectives
             f = 0.5*L2NormSquared(b=self.data)
             cil_objective = f(tv_cil) + TV(tv_cil)*(3)
-            np.testing.assert_allclose(cil_objective, obj.value, atol=1e-3)              
+            np.testing.assert_allclose(cil_objective, obj.value, atol=1e-3)       
 
+def tgv_cvxpy_regulariser(self,u, w1, w2, alpha0, alpha1, boundaries = "Neumann"):
 
+        G1 = self.sparse_gradient_matrix(u.shape, direction = 'forward', order = 1, boundaries = boundaries)  
+        DX, DY = G1[1], G1[0]
 
-
+        G2 = self.sparse_gradient_matrix(u.shape, direction = 'backward', order = 1, boundaries = boundaries) 
+        divX, divY = G2[1], G2[0]
     
+        return alpha0 * cp.sum(cp.norm(cp.vstack([DX @ cp.vec(u) - cp.vec(w1), DY @ cp.vec(u) - cp.vec(w2)]), 2, axis = 0)) + \
+            alpha1 * cp.sum(cp.norm(cp.vstack([ divX @ cp.vec(w1), divY @ cp.vec(w2), \
+                                        0.5 * ( divX @ cp.vec(w2) + divY @ cp.vec(w1) ), \
+                                        0.5 * ( divX @ cp.vec(w2) + divY @ cp.vec(w1) ) ]), 2, axis = 0  ) )            
+
+def test_cil_vs_cvxpy_total_generalised_variation(self):
+    
+    # solution
+    u_cvx = cp.Variable(self.data.shape)
+    w1_cvx = cp.Variable(self.data.shape)
+    w2_cvx = cp.Variable(self.data.shape)
+
+    # regularisation parameters
+    alpha0 = 0.1
+    alpha1 = 0.3
+
+    # fidelity term
+    fidelity = 0.5 * cp.sum_squares(u_cvx - self.data.array)   
+    regulariser = self.tgv_cvxpy_regulariser(u_cvx, w1_cvx, w2_cvx, alpha1, alpha0)
+
+    # objective
+    obj =  cp.Minimize( regulariser +  fidelity)
+    prob = cp.Problem(obj, constraints = [])
+
+    # Choose solver ( SCS, MOSEK(license needed) )
+    tgv_cvxpy = prob.solve(verbose = True, solver = cp.SCS)   
+
+    # use TotalGeneralisedVariation
+
+    TGV = TotalGeneralisedVariation(alpha = alpha1, beta = alpha0, max_iteration=500)    
+    res = TGV.proximal(self.data, tau=1.0)
+
+    # compare solution
+    np.testing.assert_allclose(res.array, u_cvx.value, atol=1e-3) 
+    
+
+
+
+
+
+
 
 
 
