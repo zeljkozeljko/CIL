@@ -219,48 +219,48 @@ class Test_CIL_vs_CVXPy(unittest.TestCase):
             cil_objective = f(tv_cil) + TV(tv_cil)*(3)
             np.testing.assert_allclose(cil_objective, obj.value, atol=1e-3)       
 
-def tgv_cvxpy_regulariser(self,u, w1, w2, alpha0, alpha1, boundaries = "Neumann"):
+    def tgv_cvxpy_regulariser(self,u, w1, w2, alpha0, alpha1, boundaries = "Neumann"):
 
-        G1 = self.sparse_gradient_matrix(u.shape, direction = 'forward', order = 1, boundaries = boundaries)  
-        DX, DY = G1[1], G1[0]
+            G1 = self.sparse_gradient_matrix(u.shape, direction = 'forward', order = 1, boundaries = boundaries)  
+            DX, DY = G1[1], G1[0]
 
-        G2 = self.sparse_gradient_matrix(u.shape, direction = 'backward', order = 1, boundaries = boundaries) 
-        divX, divY = G2[1], G2[0]
-    
-        return alpha0 * cp.sum(cp.norm(cp.vstack([DX @ cp.vec(u) - cp.vec(w1), DY @ cp.vec(u) - cp.vec(w2)]), 2, axis = 0)) + \
-            alpha1 * cp.sum(cp.norm(cp.vstack([ divX @ cp.vec(w1), divY @ cp.vec(w2), \
-                                        0.5 * ( divX @ cp.vec(w2) + divY @ cp.vec(w1) ), \
-                                        0.5 * ( divX @ cp.vec(w2) + divY @ cp.vec(w1) ) ]), 2, axis = 0  ) )            
+            G2 = self.sparse_gradient_matrix(u.shape, direction = 'backward', order = 1, boundaries = boundaries) 
+            divX, divY = G2[1], G2[0]
+        
+            return alpha0 * cvxpy.sum(cvxpy.norm(cvxpy.vstack([DX @ cvxpy.vec(u) - cvxpy.vec(w1), DY @ cvxpy.vec(u) - cvxpy.vec(w2)]), 2, axis = 0)) + \
+                alpha1 * cvxpy.sum(cvxpy.norm(cvxpy.vstack([ divX @ cvxpy.vec(w1), divY @ cvxpy.vec(w2), \
+                                            0.5 * ( divX @ cvxpy.vec(w2) + divY @ cvxpy.vec(w1) ), \
+                                            0.5 * ( divX @ cvxpy.vec(w2) + divY @ cvxpy.vec(w1) ) ]), 2, axis = 0  ) )            
 
-def test_cil_vs_cvxpy_total_generalised_variation(self):
-    
-    # solution
-    u_cvx = cp.Variable(self.data.shape)
-    w1_cvx = cp.Variable(self.data.shape)
-    w2_cvx = cp.Variable(self.data.shape)
+    def test_cil_vs_cvxpy_total_generalised_variation(self):
+        
+        # solution
+        u_cvx = cvxpy.Variable(self.data.shape)
+        w1_cvx = cvxpy.Variable(self.data.shape)
+        w2_cvx = cvxpy.Variable(self.data.shape)
 
-    # regularisation parameters
-    alpha0 = 0.1
-    alpha1 = 0.3
+        # regularisation parameters
+        alpha0 = 0.1
+        alpha1 = 0.3
 
-    # fidelity term
-    fidelity = 0.5 * cp.sum_squares(u_cvx - self.data.array)   
-    regulariser = self.tgv_cvxpy_regulariser(u_cvx, w1_cvx, w2_cvx, alpha1, alpha0)
+        # fidelity term
+        fidelity = 0.5 * cvxpy.sum_squares(u_cvx - self.data.array)   
+        regulariser = self.tgv_cvxpy_regulariser(u_cvx, w1_cvx, w2_cvx, alpha1, alpha0)
 
-    # objective
-    obj =  cp.Minimize( regulariser +  fidelity)
-    prob = cp.Problem(obj, constraints = [])
+        # objective
+        obj =  cvxpy.Minimize( regulariser +  fidelity)
+        prob = cvxpy.Problem(obj, constraints = [])
 
-    # Choose solver ( SCS, MOSEK(license needed) )
-    tgv_cvxpy = prob.solve(verbose = True, solver = cp.SCS)   
+        # Choose solver ( SCS, MOSEK(license needed) )
+        tgv_cvxpy = prob.solve(verbose = True, solver = cvxpy.SCS)   
 
-    # use TotalGeneralisedVariation
+        # use TotalGeneralisedVariation
 
-    TGV = TotalGeneralisedVariation(alpha = alpha1, beta = alpha0, max_iteration=500)    
-    res = TGV.proximal(self.data, tau=1.0)
+        TGV = TotalGeneralisedVariation(alpha = alpha1, beta = alpha0, max_iteration=500)    
+        res = TGV.proximal(self.data, tau=1.0)
 
-    # compare solution
-    np.testing.assert_allclose(res.array, u_cvx.value, atol=1e-3) 
+        # compare solution
+        np.testing.assert_allclose(res.array, u_cvx.value, atol=1e-2) 
     
 
 
